@@ -12,6 +12,8 @@ import { CSVParser } from '../../infra/parsers/CSVParser'
 import { FileType } from '../../domain/entities/ImportHistory'
 import { ParsedTransaction } from '../../domain/entities/ParsedTransaction'
 import { AppError } from '../../application/errors/AppError'
+import { AIProviderFactory } from '../../infra/ai/AIProviderFactory'
+import { CategorizationService } from '../../application/services/CategorizationService'
 
 const importRepo = new PrismaImportRepository()
 const accountRepo = new PrismaAccountRepository()
@@ -19,6 +21,9 @@ const transactionRepo = new PrismaTransactionRepository()
 const categoryRepo = new PrismaCategoryRepository()
 const ofxParser = new OFXParser()
 const csvParser = new CSVParser()
+const aiProvider = AIProviderFactory.create()
+const batchSize = parseInt(process.env.AI_BATCH_SIZE ?? '50', 10)
+const categorizationService = new CategorizationService(aiProvider, batchSize)
 const useCase = new ImportUseCase(
   importRepo,
   accountRepo,
@@ -26,6 +31,7 @@ const useCase = new ImportUseCase(
   categoryRepo,
   ofxParser,
   csvParser,
+  categorizationService,
 )
 
 const previewBodySchema = z.object({
@@ -39,6 +45,7 @@ const parsedTransactionSchema = z.object({
   type: z.enum(['income', 'expense']),
   description: z.string(),
   category: z.string().optional(),
+  categoryId: z.string().uuid().nullable().optional(),
 })
 
 const confirmBodySchema = z.object({
@@ -73,9 +80,9 @@ export class ImportController {
       const fileContent = req.file.buffer.toString('utf-8')
       const fileType = detectFileType(req.file.mimetype, req.file.originalname)
 
-      const transactions = useCase.parseFile(fileContent, fileType)
+      const { transactions, aiEnabled } = await useCase.parseAndCategorize(fileContent, fileType, req.userId!)
 
-      res.json({ transactions, total: transactions.length, fileType })
+      res.json({ transactions, total: transactions.length, fileType, aiEnabled })
     } catch (err) {
       next(err)
     }
@@ -86,13 +93,14 @@ export class ImportController {
       const { accountId, filename, fileType, transactions: rawTransactions } =
         confirmBodySchema.parse(req.body)
 
-      const parsedTransactions: ParsedTransaction[] = rawTransactions.map((t) => ({
+      const parsedTransactions: (ParsedTransaction & { categoryId?: string | null })[] = rawTransactions.map((t) => ({
         externalId: t.externalId,
         date: new Date(t.date),
         amount: t.amount,
         type: t.type,
         description: t.description,
         category: t.category,
+        categoryId: t.categoryId,
       }))
 
       const result = await useCase.importTransactions(

@@ -68,6 +68,7 @@ export interface ParsedTransaction {
   type: 'income' | 'expense'
   description: string
   category?: string
+  suggestedCategoryId?: string | null
 }
 
 export interface ImportHistory {
@@ -88,6 +89,7 @@ export interface ImportPreviewResult {
   transactions: ParsedTransaction[]
   total: number
   fileType: FileType
+  aiEnabled: boolean
 }
 
 export interface ImportResult {

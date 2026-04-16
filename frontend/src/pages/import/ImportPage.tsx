@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Upload, FileText } from 'lucide-react'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useImportPreview, useConfirmImport, useImportHistory } from '@/hooks/useImport'
+import { useCategories } from '@/hooks/useCategories'
 import { useToast } from '@/hooks/useToast'
 import { ImportPreviewResult, ParsedTransaction, ImportHistory } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,7 @@ function TypeBadge({ type }: { type: ParsedTransaction['type'] }) {
 export default function ImportPage() {
   const { data: accounts = [] } = useAccounts()
   const { data: history = [], isLoading: historyLoading } = useImportHistory()
+  const { data: categories = [] } = useCategories()
   const importPreview = useImportPreview()
   const confirmImport = useConfirmImport()
   const { toast } = useToast()
@@ -35,6 +37,8 @@ export default function ImportPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewResult, setPreviewResult] = useState<ImportPreviewResult | null>(null)
+  const [categorySelections, setCategorySelections] = useState<Record<string, string | null>>({})
+  const [aiEnabled, setAiEnabled] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -67,6 +71,11 @@ export default function ImportPage() {
     handleFileChange(e.dataTransfer.files?.[0] ?? null)
   }, [])
 
+  function resetDialogState() {
+    setCategorySelections({})
+    setAiEnabled(false)
+  }
+
   async function handlePreview() {
     if (!accountId) {
       toast({ variant: 'destructive', title: 'Conta obrigatória', description: 'Selecione uma conta antes de importar.' })
@@ -80,8 +89,14 @@ export default function ImportPage() {
     formData.append('file', selectedFile)
     formData.append('accountId', accountId)
     try {
-      const result = await importPreview.mutateAsync(formData)
-      setPreviewResult(result)
+      const data = await importPreview.mutateAsync(formData)
+      setPreviewResult(data)
+      setAiEnabled(data.aiEnabled)
+      const initial: Record<string, string | null> = {}
+      data.transactions.forEach(tx => {
+        initial[tx.externalId] = tx.suggestedCategoryId ?? null
+      })
+      setCategorySelections(initial)
       setPreviewOpen(true)
     } catch {
       toast({ variant: 'destructive', title: 'Erro na pré-visualização', description: 'Não foi possível processar o arquivo.' })
@@ -95,7 +110,10 @@ export default function ImportPage() {
         accountId,
         filename: selectedFile.name,
         fileType: previewResult.fileType,
-        transactions: previewResult.transactions,
+        transactions: previewResult.transactions.map(tx => ({
+          ...tx,
+          categoryId: categorySelections[tx.externalId] ?? null,
+        })),
       })
       toast({
         title: 'Importação concluída',
@@ -105,11 +123,30 @@ export default function ImportPage() {
       setPreviewResult(null)
       setSelectedFile(null)
       setAccountId('')
+      resetDialogState()
       if (fileInputRef.current) fileInputRef.current.value = ''
     } catch {
       toast({ variant: 'destructive', title: 'Erro na importação', description: 'Não foi possível confirmar a importação.' })
     }
   }
+
+  function handleDialogOpenChange(open: boolean) {
+    setPreviewOpen(open)
+    if (!open) {
+      resetDialogState()
+    }
+  }
+
+  function handleAcceptAllSuggestions() {
+    if (!previewResult) return
+    const updated: Record<string, string | null> = {}
+    previewResult.transactions.forEach(tx => {
+      updated[tx.externalId] = tx.suggestedCategoryId ?? null
+    })
+    setCategorySelections(updated)
+  }
+
+  const hasAnySuggestions = previewResult?.transactions.some(tx => tx.suggestedCategoryId) ?? false
 
   return (
     <div className="space-y-6">
@@ -179,7 +216,7 @@ export default function ImportPage() {
               disabled={importPreview.isPending}
             >
               <Upload className="h-4 w-4" />
-              {importPreview.isPending ? 'Processando...' : 'Pré-visualizar'}
+              {importPreview.isPending ? 'Analisando transações...' : 'Pré-visualizar'}
             </Button>
           </CardContent>
         </Card>
@@ -233,8 +270,8 @@ export default function ImportPage() {
       </div>
 
       {/* Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={previewOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               Pré-visualização — {previewResult?.total ?? 0} transações encontradas
@@ -249,17 +286,50 @@ export default function ImportPage() {
                     <th className="pb-2 pr-3 font-medium">Data</th>
                     <th className="pb-2 pr-3 font-medium">Descrição</th>
                     <th className="pb-2 pr-3 font-medium">Tipo</th>
-                    <th className="pb-2 font-medium text-right">Valor</th>
+                    <th className="pb-2 pr-3 font-medium text-right">Valor</th>
+                    <th className="pb-2 font-medium">
+                      <span className="flex items-center gap-1.5">
+                        Categoria
+                        {aiEnabled && (
+                          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 text-xs px-1.5 py-0">
+                            IA ✨
+                          </Badge>
+                        )}
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {previewResult.transactions.map(tx => (
                     <tr key={tx.externalId} className="border-b last:border-0">
                       <td className="py-2 pr-3 whitespace-nowrap">{formatDate(tx.date)}</td>
-                      <td className="py-2 pr-3 max-w-[200px] truncate" title={tx.description}>{tx.description}</td>
+                      <td className="py-2 pr-3 max-w-[180px] truncate" title={tx.description}>{tx.description}</td>
                       <td className="py-2 pr-3"><TypeBadge type={tx.type} /></td>
-                      <td className={`py-2 text-right font-medium ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                      <td className={`py-2 pr-3 text-right font-medium ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                         {formatCurrency(tx.amount)}
+                      </td>
+                      <td className="py-2">
+                        <Select
+                          value={categorySelections[tx.externalId] ?? ''}
+                          onValueChange={value =>
+                            setCategorySelections(prev => ({
+                              ...prev,
+                              [tx.externalId]: value === '' ? null : value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-40 text-xs">
+                            <SelectValue placeholder="Sem categoria" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Sem categoria</SelectItem>
+                            {categories.map(cat => (
+                              <SelectItem key={cat.id} value={cat.id} className="text-xs">
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                     </tr>
                   ))}
@@ -275,9 +345,14 @@ export default function ImportPage() {
           </p>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+            <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>
               Cancelar
             </Button>
+            {aiEnabled && hasAnySuggestions && (
+              <Button variant="outline" onClick={handleAcceptAllSuggestions}>
+                Aceitar sugestões da IA
+              </Button>
+            )}
             <Button
               onClick={handleConfirm}
               disabled={confirmImport.isPending || !previewResult?.transactions.length}

@@ -16,7 +16,7 @@ export function useConfirmImport() {
       accountId: string
       filename: string
       fileType: FileType
-      transactions: ParsedTransaction[]
+      transactions: (ParsedTransaction & { categoryId?: string | null })[]
     }): Promise<ImportResult> => (await api.post('/import/confirm', data)).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] })

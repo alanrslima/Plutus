@@ -6,6 +6,7 @@ import { ImportHistory, FileType } from '../../../domain/entities/ImportHistory'
 import { ParsedTransaction } from '../../../domain/entities/ParsedTransaction'
 import { OFXParser } from '../../../infra/parsers/OFXParser'
 import { CSVParser } from '../../../infra/parsers/CSVParser'
+import { CategorizationService } from '../../services/CategorizationService'
 import { AppError } from '../../errors/AppError'
 import { prisma } from '../../../infra/database/prisma'
 
@@ -13,6 +14,11 @@ export interface ImportResult {
   importedCount: number
   skippedCount: number
   importHistory: ImportHistory
+}
+
+export interface ParseAndCategorizeResult {
+  transactions: ParsedTransaction[]
+  aiEnabled: boolean
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -33,37 +39,64 @@ export class ImportUseCase {
     private categoryRepo: ICategoryRepository,
     private ofxParser: OFXParser,
     private csvParser: CSVParser,
+    private categorizationService?: CategorizationService,
   ) {}
 
-  parseFile(fileContent: string, fileType: FileType): ParsedTransaction[] {
-    if (fileType === 'OFX') {
-      return this.ofxParser.parse(fileContent)
+  /** Parse file and optionally enrich with AI category suggestions. */
+  async parseAndCategorize(
+    fileContent: string,
+    fileType: FileType,
+    userId: string,
+  ): Promise<ParseAndCategorizeResult> {
+    const parsed = fileType === 'OFX'
+      ? this.ofxParser.parse(fileContent)
+      : this.csvParser.parse(fileContent)
+
+    if (!this.categorizationService || !this.categorizationService.isEnabled) {
+      return { transactions: parsed, aiEnabled: false }
     }
-    return this.csvParser.parse(fileContent)
+
+    const categories = await this.categoryRepo.findAllByUser(userId)
+    const enriched = await this.categorizationService.suggestCategories(parsed, categories)
+    return { transactions: enriched, aiEnabled: true }
+  }
+
+  /** Legacy synchronous parse (kept for backward compat). */
+  parseFile(fileContent: string, fileType: FileType): ParsedTransaction[] {
+    return fileType === 'OFX'
+      ? this.ofxParser.parse(fileContent)
+      : this.csvParser.parse(fileContent)
   }
 
   async importTransactions(
     userId: string,
     accountId: string,
-    fileContent: string,
+    _fileContent: string,
     filename: string,
     fileType: FileType,
-    parsedTransactions: ParsedTransaction[],
+    parsedTransactions: (ParsedTransaction & { categoryId?: string | null })[],
   ): Promise<ImportResult> {
     const account = await this.accountRepo.findById(accountId, userId)
     if (!account) {
       throw new AppError('Account not found', 404)
     }
 
+    // Only needed for OFX category-name matching fallback (when no categoryId provided)
     const categories = await this.categoryRepo.findAllByUser(userId)
 
     let importedCount = 0
     let skippedCount = 0
 
     for (const pt of parsedTransactions) {
-      const matchedCategory = categories.find(
-        (c) => c.name.toLowerCase() === (pt.category ?? '').toLowerCase() && pt.category,
-      )
+      // Resolve categoryId: explicit choice from user > OFX name match > null
+      let resolvedCategoryId: string | null = pt.categoryId ?? null
+
+      if (!resolvedCategoryId && pt.category) {
+        const matched = categories.find(
+          (c) => c.name.toLowerCase() === pt.category!.toLowerCase(),
+        )
+        resolvedCategoryId = matched?.id ?? null
+      }
 
       try {
         await prisma.transaction.create({
@@ -74,7 +107,7 @@ export class ImportUseCase {
             amount: pt.amount,
             description: pt.description,
             date: pt.date,
-            categoryId: matchedCategory?.id ?? null,
+            categoryId: resolvedCategoryId,
             destinationAccountId: null,
             installment: null,
             totalInstallments: null,
