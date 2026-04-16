@@ -142,10 +142,10 @@ export default function TransactionsPage() {
           <CardContent className="pt-4 flex gap-4 flex-wrap">
             <div className="flex-1 min-w-[150px] space-y-1">
               <Label>Tipo</Label>
-              <Select value={filters.type ?? ''} onValueChange={v => setFilters(f => ({ ...f, type: (v || undefined) as TransactionType }))}>
+              <Select value={filters.type ?? '__none__'} onValueChange={v => setFilters(f => ({ ...f, type: (v === '__none__' ? undefined : v) as TransactionType }))}>
                 <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="__none__">Todos</SelectItem>
                   <SelectItem value="income">Receita</SelectItem>
                   <SelectItem value="expense">Despesa</SelectItem>
                   <SelectItem value="transfer">Transferência</SelectItem>
@@ -154,10 +154,10 @@ export default function TransactionsPage() {
             </div>
             <div className="flex-1 min-w-[150px] space-y-1">
               <Label>Conta</Label>
-              <Select value={filters.accountId ?? ''} onValueChange={v => setFilters(f => ({ ...f, accountId: v || undefined }))}>
+              <Select value={filters.accountId ?? '__none__'} onValueChange={v => setFilters(f => ({ ...f, accountId: v === '__none__' ? undefined : v }))}>
                 <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas</SelectItem>
+                  <SelectItem value="__none__">Todas</SelectItem>
                   {accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                 </SelectContent>
               </Select>
