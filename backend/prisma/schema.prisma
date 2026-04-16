@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  accounts     Account[]
+  categories   Category[]
+  transactions Transaction[]
+
+  @@map("users")
+}
+
+model Account {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  balance   Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions            Transaction[] @relation("AccountTransactions")
+  destinationTransactions Transaction[] @relation("DestinationAccountTransactions")
+
+  @@map("accounts")
+}
+
+model Category {
+  id        String          @id @default(uuid())
+  userId    String          @map("user_id")
+  name      String
+  type      TransactionType
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("categories")
+}
+
+model Transaction {
+  id                   String          @id @default(uuid())
+  userId               String          @map("user_id")
+  accountId            String          @map("account_id")
+  destinationAccountId String?         @map("destination_account_id")
+  categoryId           String?         @map("category_id")
+  type                 TransactionType
+  amount               Decimal         @db.Decimal(15, 2)
+  description          String?
+  date                 DateTime
+  createdAt            DateTime        @default(now()) @map("created_at")
+
+  installment        Int?
+  totalInstallments  Int?    @map("total_installments")
+  parentTransactionId String? @map("parent_transaction_id")
+
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account            Account      @relation("AccountTransactions", fields: [accountId], references: [id])
+  destinationAccount Account?     @relation("DestinationAccountTransactions", fields: [destinationAccountId], references: [id])
+  category           Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  parentTransaction  Transaction? @relation("InstallmentParent", fields: [parentTransactionId], references: [id])
+  installments       Transaction[] @relation("InstallmentParent")
+
+  @@map("transactions")
+}
+
+enum TransactionType {
+  income
+  expense
+  transfer
+}
