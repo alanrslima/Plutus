@@ -7,8 +7,11 @@ import { Prisma } from '@prisma/client'
 type RawTransaction = {
   id: string; userId: string; accountId: string; destinationAccountId: string | null
   categoryId: string | null; type: string; amount: { toNumber: () => number }; description: string | null
-  date: Date; createdAt: Date; installment: number | null; totalInstallments: number | null; parentTransactionId: string | null
+  date: Date; createdAt: Date; installment: number | null; totalInstallments: number | null
+  parentTransactionId: string | null; referencedTransactionId: string | null
   category?: { name: string; icon: string | null; color: string | null } | null
+  referencedTransaction?: { id: string; description: string | null; amount: { toNumber: () => number }; type: string } | null
+  childTransactions?: { id: string }[]
 }
 
 function toTransaction(raw: RawTransaction): Transaction {
@@ -29,10 +32,24 @@ function toTransaction(raw: RawTransaction): Transaction {
     installment: raw.installment ?? undefined,
     totalInstallments: raw.totalInstallments ?? undefined,
     parentTransactionId: raw.parentTransactionId ?? undefined,
+    referencedTransactionId: raw.referencedTransactionId ?? undefined,
+    referencedTransaction: raw.referencedTransaction
+      ? {
+          id: raw.referencedTransaction.id,
+          description: raw.referencedTransaction.description ?? undefined,
+          amount: raw.referencedTransaction.amount.toNumber(),
+          type: raw.referencedTransaction.type,
+        }
+      : undefined,
+    hasChildren: (raw.childTransactions?.length ?? 0) > 0,
   }
 }
 
-const categoryInclude = { category: { select: { name: true, icon: true, color: true } } } as const
+const categoryInclude = {
+  category: { select: { name: true, icon: true, color: true } },
+  referencedTransaction: { select: { id: true, description: true, amount: true, type: true } },
+  childTransactions: { select: { id: true } },
+} as const
 
 export class PrismaTransactionRepository implements ITransactionRepository {
   async findById(id: string, userId: string): Promise<Transaction | null> {
@@ -62,13 +79,16 @@ export class PrismaTransactionRepository implements ITransactionRepository {
 
   async createMany(data: Omit<Transaction, 'id' | 'createdAt'>[]): Promise<Transaction[]> {
     const created = await prisma.$transaction(
-      data.map(t => prisma.transaction.create({ data: t, include: categoryInclude }))
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      data.map(({ referencedTransaction, ...t }) => prisma.transaction.create({ data: t, include: categoryInclude }))
     )
     return created.map(toTransaction)
   }
 
   async update(id: string, userId: string, data: Partial<Omit<Transaction, 'id' | 'userId' | 'createdAt'>>): Promise<Transaction> {
-    const updated = await prisma.transaction.update({ where: { id }, data, include: categoryInclude })
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { referencedTransaction, ...prismaData } = data
+    const updated = await prisma.transaction.update({ where: { id }, data: prismaData as Parameters<typeof prisma.transaction.update>[0]['data'], include: categoryInclude })
     return toTransaction(updated)
   }
 

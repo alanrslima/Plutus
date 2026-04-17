@@ -17,10 +17,18 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, cn } from '@/lib/utils'
+
+const PRESET_COLORS = [
+  '#6366f1', '#8b5cf6', '#a855f7', '#ec4899',
+  '#ef4444', '#f97316', '#f59e0b', '#eab308',
+  '#84cc16', '#22c55e', '#10b981', '#14b8a6',
+  '#06b6d4', '#0ea5e9', '#3b82f6', '#64748b',
+]
 
 const schema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
+  color: z.string().optional(),
   balance: z.number().default(0),
 })
 type FormData = z.infer<typeof schema>
@@ -37,19 +45,20 @@ export default function AccountsPage() {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', balance: 0 },
+    defaultValues: { name: '', color: undefined, balance: 0 },
   })
   const balanceValue = watch('balance')
+  const selectedColor = watch('color')
 
   function openCreate() {
     setEditing(null)
-    reset({ name: '', balance: 0 })
+    reset({ name: '', color: undefined, balance: 0 })
     setDialogOpen(true)
   }
 
   function openEdit(account: Account) {
     setEditing(account)
-    reset({ name: account.name, balance: account.balance })
+    reset({ name: account.name, color: account.color, balance: account.balance })
     setDialogOpen(true)
   }
 
@@ -109,9 +118,17 @@ export default function AccountsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {accounts.map(account => (
-            <Card key={account.id} className="relative">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">{account.name}</CardTitle>
+            <Card key={account.id} className="relative overflow-hidden">
+              {account.color && (
+                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-lg" style={{ backgroundColor: account.color }} />
+              )}
+              <CardHeader className="pb-2 pt-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  {account.color && (
+                    <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
+                  )}
+                  {account.name}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className={`text-2xl font-bold ${account.balance >= 0 ? 'text-income' : 'text-expense'}`}>
@@ -150,10 +167,28 @@ export default function AccountsPage() {
                 {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               </div>
               <div className="space-y-2">
+                <Label>Cor</Label>
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setValue('color', selectedColor === c ? undefined : c)}
+                      className={cn(
+                        'h-7 w-7 rounded-full border-2 transition-transform hover:scale-110',
+                        selectedColor === c ? 'border-foreground scale-110' : 'border-transparent',
+                      )}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label>Saldo inicial</Label>
                 <CurrencyInput
                   value={balanceValue ?? 0}
                   onChange={v => setValue('balance', v)}
+                  allowNegative
                 />
               </div>
             </div>

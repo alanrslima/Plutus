@@ -14,12 +14,15 @@ export default function ReportsPage() {
   const { data: category = [] } = useCategorySummary()
   const { data: accounts = [] } = useAccountSummary()
 
-  const monthlyChart = monthly.map(s => ({
-    month: format(new Date(s.month + '-01'), 'MMM', { locale: ptBR }),
-    Receitas: s.totalIncome,
-    Despesas: s.totalExpense,
-    Saldo: s.balance,
-  }))
+  const monthlyChart = monthly.map(s => {
+    const [y, m] = s.month.split('-').map(Number)
+    return {
+      month: format(new Date(y, m - 1, 1), 'MMM', { locale: ptBR }),
+      Receitas: s.totalIncome,
+      Despesas: s.totalExpense,
+      Saldo: s.balance,
+    }
+  })
 
   const pieData = category.map((c, i) => ({
     name: c.categoryName,

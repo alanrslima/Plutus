@@ -17,4 +17,7 @@ export type Transaction = {
   installment?: number
   totalInstallments?: number
   parentTransactionId?: string
+  referencedTransactionId?: string
+  referencedTransaction?: { id: string; description?: string; amount: number; type: string }
+  hasChildren?: boolean
 }

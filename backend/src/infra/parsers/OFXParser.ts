@@ -79,6 +79,11 @@ export class OFXParser {
 
       const rawTransactions = extractTransactions(xml)
 
+      // Track how many times each FITID has been seen so that banks that
+      // reuse the same FITID for reversed/cancelled transactions still get
+      // distinct externalIds (e.g. FITID "123" → "123", "123_1", "123_2").
+      const fitidCount = new Map<string, number>()
+
       return rawTransactions.map((trn) => {
         const rawAmt = parseAmount(trn['TRNAMT'] as string | number)
         const trnType = String(trn['TRNTYPE'] ?? '').toUpperCase()
@@ -86,8 +91,13 @@ export class OFXParser {
         const type: 'income' | 'expense' =
           rawAmt > 0 || INCOME_TYPES.has(trnType) ? 'income' : 'expense'
 
+        const baseFitid = String(trn['FITID']).trim()
+        const count = fitidCount.get(baseFitid) ?? 0
+        fitidCount.set(baseFitid, count + 1)
+        const externalId = count === 0 ? baseFitid : `${baseFitid}_${count}`
+
         return {
-          externalId: String(trn['FITID']).trim(),
+          externalId,
           date: parseOFXDate(trn['DTPOSTED'] as string),
           amount: Math.abs(rawAmt),
           type,

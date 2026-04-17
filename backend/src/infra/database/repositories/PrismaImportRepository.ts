@@ -1,4 +1,4 @@
-import { IImportRepository, CreateImportHistoryInput } from '../../../domain/repositories/IImportRepository'
+import { IImportRepository, CreateImportHistoryInput, ImportHistoryDetail } from '../../../domain/repositories/IImportRepository'
 import { ImportHistory } from '../../../domain/entities/ImportHistory'
 import { FileType, ImportStatus } from '../../../domain/entities/ImportHistory'
 import { prisma } from '../prisma'
@@ -53,5 +53,38 @@ export class PrismaImportRepository implements IImportRepository {
       ...toImportHistory(r),
       accountName: r.account.name,
     }))
+  }
+
+  async existsByFileHash(userId: string, fileHash: string): Promise<boolean> {
+    const count = await prisma.importHistory.count({ where: { userId, fileHash } })
+    return count > 0
+  }
+
+  async findDetailById(id: string, userId: string): Promise<ImportHistoryDetail | null> {
+    const record = await prisma.importHistory.findFirst({
+      where: { id, userId },
+      include: {
+        account: { select: { name: true } },
+        transactions: {
+          orderBy: { date: 'desc' },
+          include: { category: { select: { name: true } } },
+        },
+      },
+    })
+    if (!record) return null
+
+    return {
+      ...toImportHistory(record),
+      accountName: record.account.name,
+      transactions: record.transactions.map((t) => ({
+        id: t.id,
+        description: t.description,
+        amount: Number(t.amount),
+        type: t.type as 'income' | 'expense' | 'transfer',
+        date: t.date,
+        categoryName: t.category?.name ?? null,
+        externalId: t.externalId,
+      })),
+    }
   }
 }

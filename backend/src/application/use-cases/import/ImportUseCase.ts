@@ -1,4 +1,4 @@
-import { IImportRepository } from '../../../domain/repositories/IImportRepository'
+import { IImportRepository, ImportHistoryDetail } from '../../../domain/repositories/IImportRepository'
 import { IAccountRepository } from '../../../domain/repositories/IAccountRepository'
 import { ITransactionRepository } from '../../../domain/repositories/ITransactionRepository'
 import { ICategoryRepository } from '../../../domain/repositories/ICategoryRepository'
@@ -79,6 +79,7 @@ export class ImportUseCase {
     filename: string,
     fileType: FileType,
     parsedTransactions: (ParsedTransaction & { categoryId?: string | null })[],
+    fileHash?: string,
   ): Promise<ImportResult> {
     const account = await this.accountRepo.findById(accountId, userId)
     if (!account) {
@@ -90,6 +91,19 @@ export class ImportUseCase {
 
     let importedCount = 0
     let skippedCount = 0
+
+    // Create the history record first so we can link transactions to it
+    const totalProcessedEstimate = parsedTransactions.length
+    const importHistory = await this.importRepo.createImportHistory({
+      userId,
+      accountId,
+      filename,
+      fileType,
+      status: 'SUCCESS', // will be updated below
+      importedCount: 0,
+      skippedCount: 0,
+      fileHash,
+    })
 
     for (const pt of parsedTransactions) {
       // Resolve categoryId: explicit choice from user > OFX name match > null
@@ -117,6 +131,7 @@ export class ImportUseCase {
             totalInstallments: null,
             parentTransactionId: null,
             externalId: pt.externalId,
+            importHistoryId: importHistory.id,
           },
         })
 
@@ -133,6 +148,7 @@ export class ImportUseCase {
       }
     }
 
+    void totalProcessedEstimate // suppress unused var warning
     const totalProcessed = importedCount + skippedCount
     const status =
       importedCount === 0 && totalProcessed > 0
@@ -141,14 +157,10 @@ export class ImportUseCase {
           ? 'PARTIAL'
           : 'SUCCESS'
 
-    const importHistory = await this.importRepo.createImportHistory({
-      userId,
-      accountId,
-      filename,
-      fileType,
-      status,
-      importedCount,
-      skippedCount,
+    // Update the record with final counts and status
+    await prisma.importHistory.update({
+      where: { id: importHistory.id },
+      data: { status, importedCount, skippedCount },
     })
 
     return { importedCount, skippedCount, importHistory }
@@ -158,6 +170,10 @@ export class ImportUseCase {
     return this.importRepo.findHistoryByUser(userId) as Promise<
       (ImportHistory & { accountName: string })[]
     >
+  }
+
+  async getHistoryDetail(id: string, userId: string): Promise<ImportHistoryDetail | null> {
+    return this.importRepo.findDetailById(id, userId)
   }
 
   async getHistoryByAccount(userId: string, accountId: string): Promise<ImportHistory[]> {

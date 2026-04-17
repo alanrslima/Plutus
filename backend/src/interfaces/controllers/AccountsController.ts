@@ -7,8 +7,8 @@ import { PrismaAccountRepository } from '../../infra/database/repositories/Prism
 const accountRepo = new PrismaAccountRepository()
 const useCase = new AccountsUseCase(accountRepo)
 
-const createSchema = z.object({ name: z.string().min(1), balance: z.number().optional() })
-const updateSchema = z.object({ name: z.string().min(1).optional(), balance: z.number().optional() })
+const createSchema = z.object({ name: z.string().min(1), color: z.string().optional(), balance: z.number().optional() })
+const updateSchema = z.object({ name: z.string().min(1).optional(), color: z.string().optional(), balance: z.number().optional() })
 
 export class AccountsController {
   async list(req: AuthRequest, res: Response, next: NextFunction) {
@@ -20,8 +20,8 @@ export class AccountsController {
 
   async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { name, balance } = createSchema.parse(req.body)
-      const account = await useCase.create(req.userId!, name, balance)
+      const { name, color, balance } = createSchema.parse(req.body)
+      const account = await useCase.create(req.userId!, name, balance, color)
       res.status(201).json(account)
     } catch (err) { next(err) }
   }

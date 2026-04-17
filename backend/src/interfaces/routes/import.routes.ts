@@ -17,5 +17,8 @@ router.post('/confirm', authMiddleware, (req, res, next) =>
 router.get('/history', authMiddleware, (req, res, next) =>
   controller.getHistory(req as any, res, next),
 )
+router.get('/history/:id', authMiddleware, (req, res, next) =>
+  controller.getHistoryDetail(req as any, res, next),
+)
 
 export default router

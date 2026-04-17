@@ -3,9 +3,13 @@ import { ParsedTransaction } from '../../domain/entities/ParsedTransaction'
 
 type CSVFormat = 'nubank' | 'inter' | 'generic'
 
-function generateExternalId(date: Date, amount: number, description: string): string {
+// rowIndex is included so that identical-looking rows in the same file
+// (e.g. 3 failed payment attempts on the same day with the same amount)
+// produce distinct externalIds and are all imported.
+// Importing the same file twice still produces the same ids → unique constraint deduplicates.
+function generateExternalId(date: Date, amount: number, description: string, rowIndex: number): string {
   return createHash('sha256')
-    .update(`${date.toISOString()}|${amount}|${description}`)
+    .update(`${date.toISOString()}|${amount}|${description}|${rowIndex}`)
     .digest('hex')
     .slice(0, 32)
 }
@@ -100,6 +104,7 @@ function parseNubank(lines: string[]): ParsedTransaction[] {
   const isFatura = headerLine.toLowerCase().startsWith('date,title')
 
   const results: ParsedTransaction[] = []
+  let rowIndex = 0
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue
@@ -118,7 +123,7 @@ function parseNubank(lines: string[]): ParsedTransaction[] {
       : rawAmount >= 0 ? 'income'  : 'expense'
 
     results.push({
-      externalId: generateExternalId(date, amount, description),
+      externalId: generateExternalId(date, amount, description, rowIndex++),
       date,
       amount,
       type,
@@ -131,6 +136,7 @@ function parseNubank(lines: string[]): ParsedTransaction[] {
 function parseInter(lines: string[]): ParsedTransaction[] {
   // Header: Data Lançamento;Histórico;Descrição;Valor;Saldo
   const results: ParsedTransaction[] = []
+  let rowIndex = 0
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue
@@ -145,7 +151,7 @@ function parseInter(lines: string[]): ParsedTransaction[] {
     const type: 'income' | 'expense' = rawAmount >= 0 ? 'income' : 'expense'
 
     results.push({
-      externalId: generateExternalId(date, amount, description),
+      externalId: generateExternalId(date, amount, description, rowIndex++),
       date,
       amount,
       type,
@@ -169,6 +175,7 @@ function parseGeneric(headerLine: string, lines: string[]): ParsedTransaction[] 
   }
 
   const results: ParsedTransaction[] = []
+  let rowIndex = 0
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue
@@ -182,7 +189,7 @@ function parseGeneric(headerLine: string, lines: string[]): ParsedTransaction[] 
     const type: 'income' | 'expense' = rawAmount >= 0 ? 'income' : 'expense'
 
     results.push({
-      externalId: generateExternalId(date, amount, description),
+      externalId: generateExternalId(date, amount, description, rowIndex++),
       date,
       amount,
       type,

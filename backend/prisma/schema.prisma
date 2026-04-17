@@ -28,6 +28,7 @@ model Account {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
   name      String
+  color     String?
   balance   Decimal  @default(0) @db.Decimal(15, 2)
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -67,17 +68,22 @@ model Transaction {
   date                 DateTime
   createdAt            DateTime        @default(now()) @map("created_at")
 
-  installment         Int?
-  totalInstallments   Int?    @map("total_installments")
-  parentTransactionId String? @map("parent_transaction_id")
-  externalId          String? @map("external_id")
+  installment              Int?
+  totalInstallments        Int?    @map("total_installments")
+  parentTransactionId      String? @map("parent_transaction_id")
+  referencedTransactionId  String? @map("referenced_transaction_id")
+  externalId               String? @map("external_id")
+  importHistoryId          String? @map("import_history_id")
 
-  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account            Account      @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
-  destinationAccount Account?     @relation("DestinationAccountTransactions", fields: [destinationAccountId], references: [id], onDelete: SetNull)
-  category           Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  parentTransaction  Transaction? @relation("InstallmentParent", fields: [parentTransactionId], references: [id])
-  installments       Transaction[] @relation("InstallmentParent")
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account               Account        @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  destinationAccount    Account?       @relation("DestinationAccountTransactions", fields: [destinationAccountId], references: [id], onDelete: SetNull)
+  category              Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  parentTransaction     Transaction?   @relation("InstallmentParent", fields: [parentTransactionId], references: [id])
+  installments          Transaction[]  @relation("InstallmentParent")
+  referencedTransaction Transaction?   @relation("TransactionReference", fields: [referencedTransactionId], references: [id])
+  childTransactions     Transaction[]  @relation("TransactionReference")
+  importHistory         ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: SetNull)
 
   @@unique([userId, externalId])
   @@map("transactions")
@@ -95,8 +101,11 @@ model ImportHistory {
   errorMessage  String?      @map("error_message")
   createdAt     DateTime     @default(now()) @map("created_at")
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  fileHash     String?       @map("file_hash")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
 
   @@map("import_history")
 }

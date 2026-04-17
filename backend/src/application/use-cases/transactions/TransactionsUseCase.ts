@@ -8,6 +8,7 @@ interface CreateTransactionInput {
   accountId: string
   destinationAccountId?: string
   categoryId?: string
+  referencedTransactionId?: string
   type: TransactionType
   amount: number
   description?: string
@@ -26,7 +27,7 @@ export class TransactionsUseCase {
   }
 
   async create(input: CreateTransactionInput): Promise<Transaction[]> {
-    const { userId, accountId, destinationAccountId, categoryId, type, amount, description, date, totalInstallments } = input
+    const { userId, accountId, destinationAccountId, categoryId, referencedTransactionId, type, amount, description, date, totalInstallments } = input
 
     // Validate accounts belong to user
     const account = await this.accountRepository.findById(accountId, userId)
@@ -55,6 +56,7 @@ export class TransactionsUseCase {
           accountId,
           destinationAccountId,
           categoryId,
+          referencedTransactionId,
           type,
           amount: installmentAmount,
           description,

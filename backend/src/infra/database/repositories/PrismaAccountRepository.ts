@@ -2,11 +2,12 @@ import { IAccountRepository } from '../../../domain/repositories/IAccountReposit
 import { Account } from '../../../domain/entities/Account'
 import { prisma } from '../prisma'
 
-function toAccount(raw: { id: string; userId: string; name: string; balance: { toNumber: () => number } | number; createdAt: Date }): Account {
+function toAccount(raw: { id: string; userId: string; name: string; color: string | null; balance: { toNumber: () => number } | number; createdAt: Date }): Account {
   return {
     id: raw.id,
     userId: raw.userId,
     name: raw.name,
+    color: raw.color ?? undefined,
     balance: typeof raw.balance === 'object' ? raw.balance.toNumber() : raw.balance,
     createdAt: raw.createdAt,
   }
@@ -28,7 +29,7 @@ export class PrismaAccountRepository implements IAccountRepository {
     return toAccount(account)
   }
 
-  async update(id: string, userId: string, data: Partial<Pick<Account, 'name' | 'balance'>>): Promise<Account> {
+  async update(id: string, userId: string, data: Partial<Pick<Account, 'name' | 'color' | 'balance'>>): Promise<Account> {
     const account = await prisma.account.update({ where: { id }, data })
     return toAccount(account)
   }

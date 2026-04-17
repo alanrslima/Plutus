@@ -8,11 +8,11 @@ export class AccountsUseCase {
     return this.accountRepository.findAllByUser(userId)
   }
 
-  async create(userId: string, name: string, balance = 0): Promise<Account> {
-    return this.accountRepository.create({ userId, name, balance })
+  async create(userId: string, name: string, balance = 0, color?: string): Promise<Account> {
+    return this.accountRepository.create({ userId, name, color, balance })
   }
 
-  async update(id: string, userId: string, data: { name?: string; balance?: number }): Promise<Account> {
+  async update(id: string, userId: string, data: { name?: string; color?: string; balance?: number }): Promise<Account> {
     const existing = await this.accountRepository.findById(id, userId)
     if (!existing) throw new Error('Account not found')
     return this.accountRepository.update(id, userId, data)

@@ -47,9 +47,9 @@ const CATEGORY_HINTS: Record<string, string[]> = {
     'açougue', 'acougue', 'peixaria', 'mercearia', 'frutaria', 'feira', 'quitanda',
   ],
   'Supermercado': [
-    'supermercado', 'mercado', 'atacadao', 'carrefour', 'extra', 'pao de acucar',
-    'assai', 'makro', 'fort atacadista', 'walmart', 'hiper', 'hipermercado',
-    'sonda', 'zaffari', 'prezunic', 'dia supermercado', 'nagumo',
+    // ⚠ "mercado" alone is NEVER enough — check for Mercado Pago / Mercado Livre first
+    'supermercado', 'hipermercado', 'atacadao', 'carrefour', 'assai', 'makro',
+    'walmart', 'fort atacadista', 'zaffari', 'prezunic', 'sonda', 'nagumo', 'condor',
   ],
   'Restaurante e Delivery': [
     'ifood', 'rappi', 'uber eats', 'mc donalds', 'mcdonalds', 'subway', 'burger king',
@@ -118,12 +118,16 @@ const CATEGORY_HINTS: Record<string, string[]> = {
     'banda larga', 'fibra', 'plano celular', 'recarga',
   ],
   'Energia Elétrica': [
-    'energia eletrica', 'eletropaulo', 'cpfl', 'cemig', 'enel', 'light',
-    'coelba', 'coelce', 'celg', 'energ', 'celesc', 'ceee', 'equatorial', 'neoenergia',
+    'energia eletrica', 'conta de luz', 'fatura de energia',
+    'enel', 'cemig', 'cpfl', 'copel', 'light', 'celesc', 'ceee', 'coelba', 'coelce',
+    'celg', 'eletropaulo', 'equatorial', 'neoenergia', 'energisa', 'elektro', 'edp',
+    'ceal', 'ceb', 'ceron', 'cosern', 'celtins', 'saelpa', 'celpe', 'cemar',
   ],
   'Água e Saneamento': [
-    'agua', 'água', 'sabesp', 'copasa', 'corsan', 'sanepar', 'caema', 'casan',
-    'casal', 'embasa', 'cagece', 'saneamento', 'conta de agua',
+    'agua', 'água', 'conta de agua', 'fatura de agua', 'saneamento', 'abastecimento',
+    'sabesp', 'copasa', 'sanepar', 'corsan', 'embasa', 'cagece', 'caesb', 'cedae',
+    'saneago', 'compesa', 'caema', 'casan', 'casal', 'caern', 'cagepa', 'deso',
+    'cesan', 'sanesul', 'sanemat', 'saneatins', 'cosanpa', 'caesa', 'agespisa',
   ],
   'Academia e Esportes': [
     'academia', 'smartfit', 'bluefit', 'bio ritmo', 'contours', 'crossfit',
@@ -208,31 +212,61 @@ Brazilian bank descriptions are noisy. Look for these patterns:
 • Day 5, 10, 15, 20, 25, 30: likely salary or regular bill payments
 • Any day: delivery apps, streaming, supermarkets can occur anytime
 
+━━━ FINTECHS, BANCOS E E-COMMERCE — ATENÇÃO ━━━
+These are NOT supermarkets or food categories:
+• MERCADO PAGO → payment platform. Categorize by the underlying service (e.g. "MERCADO PAGO*ENEL" = Energia Elétrica). If context is unclear → Outros.
+• MERCADO LIVRE → e-commerce marketplace, NOT a supermarket. Infer from context or use Outros.
+• PICPAY, PAGSEGURO, UOLPAG → payment platforms → Outros unless context reveals the real merchant.
+• NUBANK, INTER, BANCO INTER, C6 BANK, NEON → banks/fintechs. "FATURA NUBANK" is a credit card payment → Outros.
+• STONE, CIELO, GETNET, REDE → payment terminals / acquirers → Outros (usually merchant fees).
+• PAYPAL, WISE → international payments → look at merchant if present; else Outros.
+• AMAZON → if "AMAZON PRIME" or "AMAZON MUSIC" → Assinaturas e Streaming. Otherwise e-commerce → Outros.
+• SHOPEE, SHEIN, ALIEXPRESS → e-commerce → infer from description or Outros.
+• AMERICANAS, MAGAZINE LUIZA, MAGALU, CASAS BAHIA → retail stores → infer from description or Outros.
+• CAIXA ECONÔMICA, BANCO BRADESCO, ITAÚ, SANTANDER → banks → Outros.
+
+RULE: "MERCADO" alone in a description does NOT mean supermarket. Always check if it's part of "MERCADO PAGO" or "MERCADO LIVRE" before assuming supermarket.
+
+━━━ UTILITY COMPANIES — NEVER CONFUSE THESE ━━━
+ÁGUA E SANEAMENTO (water/sewage companies — NOT electricity):
+  SABESP (SP), COPASA (MG), SANEPAR (PR), CORSAN (RS), EMBASA (BA), CAGECE (CE),
+  CAESB (DF), CEDAE (RJ), SANEAGO (GO), COMPESA (PE), CAEMA (MA), CASAN (SC),
+  CASAL (AL), CAERN (RN), CAGEPA (PB), DESO (SE), CESAN (ES), SANESUL (MS),
+  SANEMAT (MT), SANEATINS (TO), COSANPA (PA), CAESA (AP), AGESPISA (PI), CAER (RR)
+  → Key rule: names starting with SANE*, CAGE*, CESA*, CASA*, EMBA* are WATER companies.
+
+ENERGIA ELÉTRICA (electricity — NOT water):
+  ENEL (SP/RJ/CE/GO/AM), CEMIG (MG), COPEL (PR), LIGHT (RJ), CPFL (SP/RS/MG),
+  CELESC (SC), COELBA (BA), COELCE (CE), CELG (GO), CEEE (RS), EQUATORIAL (MA/PA/AL/PI),
+  NEOENERGIA (BA/PB/PE/DF), ENERGISA (various), ELETROPAULO (SP), RGE (RS),
+  COSERN (RN), CEAL (AL), CELPE (PE), CERON (RO), CELTINS (TO), SAELPA (PB)
+  → Key rule: COPEL≠COPASA (COPEL=electricity PR, COPASA=water MG). CELG=electricity GO, SANEAGO=water GO.
+
 ━━━ COMMON BRAZILIAN MERCHANTS BY CATEGORY ━━━
-Alimentação: padaria, cafeteria, hortifruti, açougue, feira, mercearia
-Supermercado: carrefour, extra, assaí, atacadão, makro, zaffari, pão de açúcar, fort, walmart
+Alimentação: padaria, cafeteria, hortifruti, açougue, feira, mercearia, panificadora
+Supermercado: carrefour, extra, assaí, atacadão, makro, zaffari, pão de açúcar, fort, walmart, condor, bahamas
 Restaurante e Delivery: ifood, rappi, uber eats, mcdonalds, burger king, subway, dominos, pizzaria, restaurante, churrascaria
-Moradia: aluguel, condomínio, iptu, imobiliária, administradora
-Transporte: uber, 99pop, cabify, metro, ônibus, bilhete único, cptm, supervia, taxi
-Combustível: posto, ipiranga, shell, petrobras, br distribuidora, gasolina, etanol
-Saúde: hospital, clínica, médico, consultório, plano de saúde, unimed, amil, cirurgia, exame
-Farmácia: drogasil, droga raia, pacheco, nissei, ultrafarma, panvel, pague menos, farmácia
-Educação: escola, faculdade, curso, mensalidade, idiomas, wizard, ccaa, alura, udemy, livraria
-Lazer e Entretenimento: cinema, teatro, show, ingresso, bar, balada, steam, playstation, game
-Assinaturas e Streaming: netflix, spotify, amazon prime, disney, hbo max, globoplay, deezer, adobe, microsoft 365
-Roupas e Acessórios: renner, riachuelo, c&a, zara, nike, adidas, dafiti, shein, sapataria
-Telefone e Internet: vivo, claro, tim, oi, net, sky, recarga, fatura celular, internet, fibra
-Energia Elétrica: enel, cemig, cpfl, light, coelba, eletropaulo, neoenergia, equatorial
-Água e Saneamento: sabesp, copasa, corsan, sanepar, embasa, água
-Academia e Esportes: academia, smartfit, bluefit, bodytech, crossfit, pilates, yoga, natação
+Moradia: aluguel, condomínio, iptu, imobiliária, administradora, seguro residencial
+Transporte: uber, 99pop, cabify, metro, ônibus, bilhete único, cptm, supervia, taxi, buser
+Combustível: posto, ipiranga, shell, petrobras, br distribuidora, gasolina, etanol, raízen
+Saúde: hospital, clínica, médico, consultório, plano de saúde, unimed, amil, hapvida, exame, cirurgia
+Farmácia: drogasil, droga raia, pacheco, nissei, ultrafarma, panvel, pague menos, farmácia, drogaria
+Educação: escola, faculdade, curso, mensalidade, idiomas, wizard, ccaa, alura, udemy, livraria, material escolar
+Lazer e Entretenimento: cinema, teatro, show, ingresso, bar, balada, steam, playstation, xbox, game
+Assinaturas e Streaming: netflix, spotify, amazon prime, disney+, hbo max, globoplay, deezer, adobe, microsoft 365, chatgpt
+Roupas e Acessórios: renner, riachuelo, c&a, zara, nike, adidas, dafiti, shein, sapataria, calçados
+Telefone e Internet: vivo, claro, tim, oi, net, sky, recarga celular, fatura celular, internet, fibra, banda larga
+Energia Elétrica: enel, cemig, cpfl, copel, light, coelba, celesc, neoenergia, equatorial, energisa, conta de luz
+Água e Saneamento: sabesp, copasa, sanepar, corsan, embasa, saneago, caesb, cedae, compesa, água, saneamento
+Academia e Esportes: academia, smartfit, bluefit, bodytech, crossfit, pilates, yoga, natação, beach tennis, padel
 Pet: petshop, cobasi, petz, veterinário, ração, banho e tosa
-Viagem: hotel, airbnb, booking, localiza, movida, cvc, decolar, aeroporto
-Impostos e Taxas: ipva, iptu, iof, detran, dpvat, multa, receita federal, guia, darf, das mei
-Salário: salário, folha, pagamento, adiantamento, 13o, férias, rescisão
-Freelance: freelance, autônomo, honorários, prestação de serviço, consultoria
-Investimentos: rendimento, resgate, cdb, tesouro, lci, fundo, ações, btg, xp, nu invest
+Viagem: hotel, airbnb, booking, localiza, movida, cvc, decolar, aeroporto, pousada
+Impostos e Taxas: ipva, iptu, iof, detran, dpvat, multa, receita federal, guia, darf, das mei, sefaz
+Salário: salário, folha, pagamento, adiantamento, 13o, férias, rescisão, proventos
+Freelance: freelance, autônomo, honorários, prestação de serviço, consultoria, rps
+Investimentos: rendimento, resgate, cdb, tesouro, lci, fundo, ações, btg, xp, nu invest, renda fixa
 Aluguel Recebido: aluguel recebido, receita aluguel, locação recebida
-Dividendos: dividendo, jscp, juros sobre capital, fii rendimento
+Dividendos: dividendo, jscp, juros sobre capital, fii rendimento, proventos ação
 Reembolso: estorno, reembolso, devolução, chargeback, cashback, restituição
 Presente: presente, doação, gift`
 }
@@ -246,7 +280,7 @@ export function buildUserPrompt(
     .map((c) => {
       const hints = CATEGORY_HINTS[c.name]
       const hintStr = hints && hints.length > 0
-        ? ` [keywords: ${hints.slice(0, 8).join(', ')}]`
+        ? ` [keywords: ${hints.slice(0, 12).join(', ')}]`
         : ''
       return `  {"id": "${c.id}", "name": "${c.name}", "type": "${c.type}"${hintStr}}`
     })

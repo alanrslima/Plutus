@@ -10,6 +10,7 @@ export interface Account {
   id: string
   userId: string
   name: string
+  color?: string
   balance: number
   createdAt: string
 }
@@ -41,6 +42,9 @@ export interface Transaction {
   installment?: number
   totalInstallments?: number
   parentTransactionId?: string
+  referencedTransactionId?: string
+  referencedTransaction?: { id: string; description?: string; amount: number; type: string }
+  hasChildren?: boolean
 }
 
 export interface MonthlySummary {
@@ -95,12 +99,27 @@ export interface ImportPreviewResult {
   total: number
   fileType: FileType
   aiEnabled: boolean
+  fileHash: string
 }
 
 export interface ImportResult {
   importedCount: number
   skippedCount: number
   importHistory: ImportHistory
+}
+
+export interface ImportedTransactionDetail {
+  id: string
+  description: string | null
+  amount: number
+  type: 'income' | 'expense' | 'transfer'
+  date: string
+  categoryName: string | null
+  externalId: string | null
+}
+
+export interface ImportHistoryDetail extends ImportHistory {
+  transactions: ImportedTransactionDetail[]
 }
 
 // Goals

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
-import { Upload, FileText, Sparkles, X, Loader2 } from 'lucide-react'
+import { Upload, FileText, Sparkles, X, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { useAccounts } from '@/hooks/useAccounts'
-import { useImportPreview, useConfirmImport, useImportHistory, useAICategorize } from '@/hooks/useImport'
+import { useImportPreview, useConfirmImport, useImportHistory, useAICategorize, useImportHistoryDetail } from '@/hooks/useImport'
 import { useCategories } from '@/hooks/useCategories'
 import { useToast } from '@/hooks/useToast'
 import { ImportPreviewResult, ParsedTransaction, ImportHistory } from '@/types'
@@ -18,6 +18,7 @@ type EnrichedTransaction = ParsedTransaction & { _filename: string }
 type FilePreview = {
   file: File
   result: ImportPreviewResult
+  fileHash: string
 }
 
 function StatusBadge({ status }: { status: ImportHistory['status'] }) {
@@ -44,6 +45,9 @@ export default function ImportPage() {
   const confirmImport = useConfirmImport()
   const aiCategorize = useAICategorize()
   const { toast } = useToast()
+
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
+  const { data: historyDetail, isLoading: detailLoading } = useImportHistoryDetail(selectedHistoryId)
 
   const [accountId, setAccountId] = useState<string>('')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -129,7 +133,7 @@ export default function ImportPage() {
       formData.append('accountId', accountId)
       try {
         const result = await importPreview.mutateAsync(formData)
-        previews.push({ file, result })
+        previews.push({ file, result, fileHash: result.fileHash })
       } catch {
         failed.push(file.name)
       }
@@ -171,7 +175,7 @@ export default function ImportPage() {
     let totalSkipped = 0
     const errors: string[] = []
 
-    for (const { file, result } of filePreviews) {
+    for (const { file, result, fileHash } of filePreviews) {
       const txForFile = mergedTransactions
         .filter(tx => tx._filename === file.name)
         .map(tx => {
@@ -185,6 +189,7 @@ export default function ImportPage() {
           filename: file.name,
           fileType: result.fileType,
           transactions: txForFile,
+          fileHash,
         })
         totalImported += res.importedCount
         totalSkipped += res.skippedCount
@@ -387,7 +392,11 @@ export default function ImportPage() {
                   </thead>
                   <tbody>
                     {history.map(item => (
-                      <tr key={item.id} className="border-b last:border-0">
+                      <tr
+                        key={item.id}
+                        className="border-b last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setSelectedHistoryId(item.id)}
+                      >
                         <td className="py-2 pr-3 whitespace-nowrap">{formatDate(item.createdAt)}</td>
                         <td className="py-2 pr-3 max-w-[120px] truncate" title={item.filename}>{item.filename}</td>
                         <td className="py-2 pr-3 max-w-[100px] truncate" title={item.accountName}>{item.accountName ?? '—'}</td>
@@ -403,6 +412,87 @@ export default function ImportPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* History Detail Modal */}
+      <Dialog open={!!selectedHistoryId} onOpenChange={open => { if (!open) setSelectedHistoryId(null) }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Detalhes da Importação
+              {historyDetail && <StatusBadge status={historyDetail.status} />}
+            </DialogTitle>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="space-y-2 py-4">
+              {[1, 2, 3].map(i => <div key={i} className="h-8 animate-pulse rounded bg-muted" />)}
+            </div>
+          ) : historyDetail ? (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="flex flex-wrap gap-4 text-sm border rounded-lg p-4 bg-muted/30">
+                <div><span className="text-muted-foreground">Arquivo: </span><span className="font-medium">{historyDetail.filename}</span></div>
+                <div><span className="text-muted-foreground">Conta: </span><span className="font-medium">{historyDetail.accountName}</span></div>
+                <div><span className="text-muted-foreground">Data: </span><span className="font-medium">{formatDate(historyDetail.createdAt)}</span></div>
+                <div className="flex items-center gap-1 text-green-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="font-semibold">{historyDetail.importedCount}</span>
+                  <span className="text-muted-foreground">importadas</span>
+                </div>
+                {historyDetail.skippedCount > 0 && (
+                  <div className="flex items-center gap-1 text-yellow-600">
+                    <XCircle className="h-4 w-4" />
+                    <span className="font-semibold">{historyDetail.skippedCount}</span>
+                    <span className="text-muted-foreground">ignoradas (duplicatas)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Imported transactions table */}
+              {historyDetail.transactions.length > 0 ? (
+                <div className="max-h-80 overflow-y-auto rounded border">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-background border-b">
+                      <tr className="text-left text-muted-foreground">
+                        <th className="px-3 py-2 font-medium">Data</th>
+                        <th className="px-3 py-2 font-medium">Descrição</th>
+                        <th className="px-3 py-2 font-medium">Categoria</th>
+                        <th className="px-3 py-2 font-medium">Tipo</th>
+                        <th className="px-3 py-2 font-medium text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyDetail.transactions.map(tx => (
+                        <tr key={tx.id} className="border-b last:border-0 hover:bg-muted/30">
+                          <td className="px-3 py-2 whitespace-nowrap">{formatDate(tx.date)}</td>
+                          <td className="px-3 py-2 max-w-[200px] truncate" title={tx.description ?? ''}>{tx.description ?? '—'}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{tx.categoryName ?? <span className="italic text-xs">Sem categoria</span>}</td>
+                          <td className="px-3 py-2">
+                            {tx.type === 'income'
+                              ? <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Receita</Badge>
+                              : <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Despesa</Badge>}
+                          </td>
+                          <td className={`px-3 py-2 text-right font-medium ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(tx.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Nenhuma transação vinculada a esta importação.
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedHistoryId(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={handleDialogOpenChange}>

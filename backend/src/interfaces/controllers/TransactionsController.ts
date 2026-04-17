@@ -15,6 +15,7 @@ const createSchema = z.object({
   accountId: z.string().uuid(),
   destinationAccountId: z.string().uuid().optional(),
   categoryId: z.string().uuid().optional(),
+  referencedTransactionId: z.string().uuid().optional(),
   type: typeEnum,
   amount: z.number().positive(),
   description: z.string().optional(),
@@ -25,6 +26,7 @@ const createSchema = z.object({
 const updateSchema = z.object({
   accountId: z.string().uuid().optional(),
   categoryId: z.string().uuid().optional(),
+  referencedTransactionId: z.string().uuid().nullable().optional(),
   type: typeEnum.optional(),
   amount: z.number().positive().optional(),
   description: z.string().optional(),
@@ -64,6 +66,7 @@ export class TransactionsController {
       const transaction = await useCase.update(req.params.id, req.userId!, {
         ...data,
         date: data.date ? new Date(data.date) : undefined,
+        referencedTransactionId: data.referencedTransactionId ?? undefined,
       })
       res.json(transaction)
     } catch (err) { next(err) }

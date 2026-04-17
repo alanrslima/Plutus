@@ -40,11 +40,14 @@ export default function DashboardPage() {
   const currentSummary = monthlySummary.find(s => s.month === currentMonth)
   const recentTransactions = transactions.slice(0, 5)
 
-  const chartData = monthlySummary.map(s => ({
-    month: format(new Date(s.month + '-01'), 'MMM', { locale: ptBR }),
-    Receitas: s.totalIncome,
-    Despesas: s.totalExpense,
-  }))
+  const chartData = monthlySummary.map(s => {
+    const [y, m] = s.month.split('-').map(Number)
+    return {
+      month: format(new Date(y, m - 1, 1), 'MMM', { locale: ptBR }),
+      Receitas: s.totalIncome,
+      Despesas: s.totalExpense,
+    }
+  })
 
   const pieData = categorySummary.slice(0, 7).map((c, i) => ({
     name: c.categoryName,

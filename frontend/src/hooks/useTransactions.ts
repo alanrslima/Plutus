@@ -24,6 +24,7 @@ export function useCreateTransaction() {
       accountId: string
       destinationAccountId?: string
       categoryId?: string
+      referencedTransactionId?: string
       type: TransactionType
       amount: number
       description?: string

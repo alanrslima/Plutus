@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
-import { ImportPreviewResult, ImportResult, ImportHistory, ParsedTransaction, FileType } from '../types'
+import { ImportPreviewResult, ImportResult, ImportHistory, ImportHistoryDetail, ParsedTransaction, FileType } from '../types'
 
 export function useImportPreview() {
   return useMutation({
@@ -24,6 +24,7 @@ export function useConfirmImport() {
       filename: string
       fileType: FileType
       transactions: (ParsedTransaction & { categoryId?: string | null })[]
+      fileHash?: string
     }): Promise<ImportResult> => (await api.post('/import/confirm', data)).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
@@ -37,5 +38,13 @@ export function useImportHistory() {
   return useQuery<ImportHistory[]>({
     queryKey: ['import', 'history'],
     queryFn: async () => (await api.get('/import/history')).data.history,
+  })
+}
+
+export function useImportHistoryDetail(id: string | null) {
+  return useQuery<ImportHistoryDetail>({
+    queryKey: ['import', 'history', id],
+    queryFn: async () => (await api.get(`/import/history/${id}`)).data,
+    enabled: !!id,
   })
 }

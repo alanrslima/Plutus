@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { Response, NextFunction } from 'express'
 import multer from 'multer'
 import { z } from 'zod'
@@ -57,6 +58,7 @@ const confirmBodySchema = z.object({
   filename: z.string(),
   fileType: z.enum(['OFX', 'CSV']),
   transactions: z.array(parsedTransactionSchema),
+  fileHash: z.string().optional(),
 })
 
 function detectFileType(mimetype: string, originalname: string): FileType {
@@ -83,10 +85,11 @@ export class ImportController {
 
       const fileContent = req.file.buffer.toString('utf-8')
       const fileType = detectFileType(req.file.mimetype, req.file.originalname)
+      const fileHash = createHash('sha256').update(req.file.buffer).digest('hex')
 
       const { transactions, aiEnabled } = await useCase.parseAndCategorize(fileContent, fileType)
 
-      res.json({ transactions, total: transactions.length, fileType, aiEnabled })
+      res.json({ transactions, total: transactions.length, fileType, aiEnabled, fileHash })
     } catch (err) {
       next(err)
     }
@@ -94,7 +97,7 @@ export class ImportController {
 
   confirmImport = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { accountId, filename, fileType, transactions: rawTransactions } =
+      const { accountId, filename, fileType, transactions: rawTransactions, fileHash } =
         confirmBodySchema.parse(req.body)
 
       const parsedTransactions: (ParsedTransaction & { categoryId?: string | null })[] = rawTransactions.map((t) => ({
@@ -114,6 +117,7 @@ export class ImportController {
         filename,
         fileType as FileType,
         parsedTransactions,
+        fileHash,
       )
 
       res.status(201).json(result)
@@ -147,6 +151,17 @@ export class ImportController {
     try {
       const history = await useCase.getHistory(req.userId!)
       res.json({ history })
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  getHistoryDetail = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params
+      const detail = await useCase.getHistoryDetail(id, req.userId!)
+      if (!detail) throw new AppError('Import history not found', 404)
+      res.json(detail)
     } catch (err) {
       next(err)
     }

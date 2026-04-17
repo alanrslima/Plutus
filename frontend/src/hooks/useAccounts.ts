@@ -12,7 +12,7 @@ export function useAccounts() {
 export function useCreateAccount() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { name: string; balance?: number }) => api.post('/accounts', data),
+    mutationFn: (data: { name: string; color?: string; balance?: number }) => api.post('/accounts', data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['accounts'] }),
   })
 }
@@ -20,7 +20,7 @@ export function useCreateAccount() {
 export function useUpdateAccount() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; balance?: number }) => api.put(`/accounts/${id}`, data),
+    mutationFn: ({ id, ...data }: { id: string; name?: string; color?: string; balance?: number }) => api.put(`/accounts/${id}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['accounts'] }),
   })
 }
