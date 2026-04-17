@@ -1,15 +1,32 @@
 import { TrendingUp, TrendingDown, Wallet, ArrowLeftRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useTransactions } from '@/hooks/useTransactions'
 import { useMonthlySummary, useCategorySummary } from '@/hooks/useReports'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { Transaction, TransactionType } from '@/types'
 
 const COLORS = ['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899']
+
+const typeLabel: Record<TransactionType, string> = { income: 'Receita', expense: 'Despesa', transfer: 'Transferência' }
+const typeVariant: Record<TransactionType, 'income' | 'expense' | 'transfer'> = {
+  income: 'income', expense: 'expense', transfer: 'transfer',
+}
+
+function AmountCell({ t }: { t: Transaction }) {
+  const cls = t.type === 'income' ? 'text-income' : t.type === 'expense' ? 'text-expense' : 'text-transfer'
+  return (
+    <span className={`text-sm font-semibold ${cls}`}>
+      {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+    </span>
+  )
+}
 
 export default function DashboardPage() {
   const year = new Date().getFullYear()
@@ -22,11 +39,6 @@ export default function DashboardPage() {
   const currentMonth = format(new Date(), 'yyyy-MM')
   const currentSummary = monthlySummary.find(s => s.month === currentMonth)
   const recentTransactions = transactions.slice(0, 5)
-
-  const typeLabel: Record<string, string> = { income: 'Receita', expense: 'Despesa', transfer: 'Transferência' }
-  const typeVariant: Record<string, 'income' | 'expense' | 'transfer'> = {
-    income: 'income', expense: 'expense', transfer: 'transfer',
-  }
 
   const chartData = monthlySummary.map(s => ({
     month: format(new Date(s.month + '-01'), 'MMM', { locale: ptBR }),
@@ -135,26 +147,49 @@ export default function DashboardPage() {
 
       {/* Recent transactions */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Últimas Transações</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Últimas Transações</CardTitle>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/transactions">Ver mais</Link>
+          </Button>
+        </CardHeader>
         <CardContent>
           {recentTransactions.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhuma transação ainda</p>
           ) : (
-            <div className="space-y-3">
-              {recentTransactions.map(t => (
-                <div key={t.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Badge variant={typeVariant[t.type]}>{typeLabel[t.type]}</Badge>
-                    <div>
-                      <p className="text-sm font-medium">{t.description ?? '—'}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(t.date)}</p>
-                    </div>
-                  </div>
-                  <span className={`text-sm font-semibold ${t.type === 'income' ? 'text-income' : t.type === 'expense' ? 'text-expense' : 'text-transfer'}`}>
-                    {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
-                  </span>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">Tipo</th>
+                    <th className="pb-2 pr-4 font-medium">Descrição</th>
+                    <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Categoria</th>
+                    <th className="pb-2 pr-4 font-medium hidden md:table-cell">Data</th>
+                    <th className="pb-2 font-medium text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentTransactions.map(t => (
+                    <tr key={t.id} className="border-b last:border-0 hover:bg-accent/30 transition-colors">
+                      <td className="py-2.5 pr-4">
+                        <Badge variant={typeVariant[t.type]}>{typeLabel[t.type]}</Badge>
+                      </td>
+                      <td className="py-2.5 pr-4 max-w-[180px] truncate font-medium" title={t.description ?? '—'}>
+                        {t.description ?? '—'}
+                      </td>
+                      <td className="py-2.5 pr-4 text-muted-foreground hidden sm:table-cell">
+                        {t.categoryName ?? '—'}
+                      </td>
+                      <td className="py-2.5 pr-4 text-muted-foreground hidden md:table-cell whitespace-nowrap">
+                        {formatDate(t.date)}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <AmountCell t={t} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

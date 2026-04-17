@@ -6,6 +6,9 @@ export type Transaction = {
   accountId: string
   destinationAccountId?: string
   categoryId?: string
+  categoryName?: string
+  categoryIcon?: string
+  categoryColor?: string
   type: TransactionType
   amount: number
   description?: string

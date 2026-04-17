@@ -12,7 +12,7 @@ export function useCategories(type?: TransactionType) {
 export function useCreateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { name: string; type: TransactionType }) => api.post('/categories', data),
+    mutationFn: (data: { name: string; type: TransactionType; icon?: string; color?: string }) => api.post('/categories', data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
   })
 }
@@ -20,7 +20,7 @@ export function useCreateCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; type?: TransactionType }) => api.put(`/categories/${id}`, data),
+    mutationFn: ({ id, ...data }: { id: string; name?: string; type?: TransactionType; icon?: string; color?: string }) => api.put(`/categories/${id}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
   })
 }

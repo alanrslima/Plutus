@@ -42,6 +42,8 @@ model Category {
   userId    String          @map("user_id")
   name      String
   type      TransactionType
+  icon      String?
+  color     String?
   createdAt DateTime        @default(now()) @map("created_at")
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -2,12 +2,17 @@ import { ICategoryRepository } from '../../../domain/repositories/ICategoryRepos
 import { Category, TransactionType } from '../../../domain/entities/Category'
 import { prisma } from '../prisma'
 
-function toCategory(raw: { id: string; userId: string; name: string; type: string; createdAt: Date }): Category {
+function toCategory(raw: {
+  id: string; userId: string; name: string; type: string
+  icon: string | null; color: string | null; createdAt: Date
+}): Category {
   return {
     id: raw.id,
     userId: raw.userId,
     name: raw.name,
     type: raw.type as TransactionType,
+    icon: raw.icon ?? undefined,
+    color: raw.color ?? undefined,
     createdAt: raw.createdAt,
   }
 }
@@ -35,7 +40,7 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     await prisma.category.createMany({ data })
   }
 
-  async update(id: string, userId: string, data: Partial<Pick<Category, 'name' | 'type'>>): Promise<Category> {
+  async update(id: string, userId: string, data: Partial<Pick<Category, 'name' | 'type' | 'icon' | 'color'>>): Promise<Category> {
     const category = await prisma.category.update({ where: { id }, data })
     return toCategory(category)
   }

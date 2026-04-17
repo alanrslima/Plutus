@@ -9,6 +9,13 @@ export function useImportPreview() {
   })
 }
 
+export function useAICategorize() {
+  return useMutation({
+    mutationFn: async (transactions: ParsedTransaction[]): Promise<{ transactions: ParsedTransaction[] }> =>
+      (await api.post('/import/categorize', { transactions })).data,
+  })
+}
+
 export function useConfirmImport() {
   const qc = useQueryClient()
   return useMutation({

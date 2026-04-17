@@ -48,6 +48,10 @@ const parsedTransactionSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
 })
 
+const categorizeBodySchema = z.object({
+  transactions: z.array(parsedTransactionSchema),
+})
+
 const confirmBodySchema = z.object({
   accountId: z.string().uuid(),
   filename: z.string(),
@@ -80,7 +84,7 @@ export class ImportController {
       const fileContent = req.file.buffer.toString('utf-8')
       const fileType = detectFileType(req.file.mimetype, req.file.originalname)
 
-      const { transactions, aiEnabled } = await useCase.parseAndCategorize(fileContent, fileType, req.userId!)
+      const { transactions, aiEnabled } = await useCase.parseAndCategorize(fileContent, fileType)
 
       res.json({ transactions, total: transactions.length, fileType, aiEnabled })
     } catch (err) {
@@ -113,6 +117,27 @@ export class ImportController {
       )
 
       res.status(201).json(result)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  categorize = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { transactions: rawTransactions } = categorizeBodySchema.parse(req.body)
+
+      const transactions: ParsedTransaction[] = rawTransactions.map((t) => ({
+        externalId: t.externalId,
+        date: new Date(t.date),
+        amount: t.amount,
+        type: t.type,
+        description: t.description,
+        category: t.category,
+      }))
+
+      const enriched = await useCase.categorizeTransactions(transactions, req.userId!)
+
+      res.json({ transactions: enriched })
     } catch (err) {
       next(err)
     }

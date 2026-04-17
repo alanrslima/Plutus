@@ -6,6 +6,6 @@ export interface ICategoryRepository {
   findAllByUser(userId: string, type?: TransactionType): Promise<Category[]>
   create(data: Omit<Category, 'id' | 'createdAt'>): Promise<Category>
   createMany(data: Omit<Category, 'id' | 'createdAt'>[]): Promise<void>
-  update(id: string, userId: string, data: Partial<Pick<Category, 'name' | 'type'>>): Promise<Category>
+  update(id: string, userId: string, data: Partial<Pick<Category, 'name' | 'type' | 'icon' | 'color'>>): Promise<Category>
   delete(id: string, userId: string): Promise<void>
 }

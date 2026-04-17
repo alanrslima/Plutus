@@ -8,8 +8,18 @@ const categoryRepo = new PrismaCategoryRepository()
 const useCase = new CategoriesUseCase(categoryRepo)
 
 const typeEnum = z.enum(['income', 'expense', 'transfer'])
-const createSchema = z.object({ name: z.string().min(1), type: typeEnum })
-const updateSchema = z.object({ name: z.string().min(1).optional(), type: typeEnum.optional() })
+const createSchema = z.object({
+  name: z.string().min(1),
+  type: typeEnum,
+  icon: z.string().optional(),
+  color: z.string().optional(),
+})
+const updateSchema = z.object({
+  name: z.string().min(1).optional(),
+  type: typeEnum.optional(),
+  icon: z.string().optional(),
+  color: z.string().optional(),
+})
 
 export class CategoriesController {
   async list(req: AuthRequest, res: Response, next: NextFunction) {
@@ -22,8 +32,8 @@ export class CategoriesController {
 
   async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { name, type } = createSchema.parse(req.body)
-      const category = await useCase.create(req.userId!, name, type)
+      const { name, type, icon, color } = createSchema.parse(req.body)
+      const category = await useCase.create(req.userId!, name, type, icon, color)
       res.status(201).json(category)
     } catch (err) { next(err) }
   }

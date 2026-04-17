@@ -4,17 +4,23 @@ import { TransactionType } from '../../../domain/entities/Category'
 import { prisma } from '../prisma'
 import { Prisma } from '@prisma/client'
 
-function toTransaction(raw: {
+type RawTransaction = {
   id: string; userId: string; accountId: string; destinationAccountId: string | null
   categoryId: string | null; type: string; amount: { toNumber: () => number }; description: string | null
   date: Date; createdAt: Date; installment: number | null; totalInstallments: number | null; parentTransactionId: string | null
-}): Transaction {
+  category?: { name: string; icon: string | null; color: string | null } | null
+}
+
+function toTransaction(raw: RawTransaction): Transaction {
   return {
     id: raw.id,
     userId: raw.userId,
     accountId: raw.accountId,
     destinationAccountId: raw.destinationAccountId ?? undefined,
     categoryId: raw.categoryId ?? undefined,
+    categoryName: raw.category?.name ?? undefined,
+    categoryIcon: raw.category?.icon ?? undefined,
+    categoryColor: raw.category?.color ?? undefined,
     type: raw.type as TransactionType,
     amount: raw.amount.toNumber(),
     description: raw.description ?? undefined,
@@ -26,9 +32,11 @@ function toTransaction(raw: {
   }
 }
 
+const categoryInclude = { category: { select: { name: true, icon: true, color: true } } } as const
+
 export class PrismaTransactionRepository implements ITransactionRepository {
   async findById(id: string, userId: string): Promise<Transaction | null> {
-    const t = await prisma.transaction.findFirst({ where: { id, userId } })
+    const t = await prisma.transaction.findFirst({ where: { id, userId }, include: categoryInclude })
     return t ? toTransaction(t) : null
   }
 
@@ -46,6 +54,7 @@ export class PrismaTransactionRepository implements ITransactionRepository {
           }
         } : {}),
       },
+      include: categoryInclude,
       orderBy: { date: 'desc' },
     })
     return transactions.map(toTransaction)
@@ -53,13 +62,13 @@ export class PrismaTransactionRepository implements ITransactionRepository {
 
   async createMany(data: Omit<Transaction, 'id' | 'createdAt'>[]): Promise<Transaction[]> {
     const created = await prisma.$transaction(
-      data.map(t => prisma.transaction.create({ data: t }))
+      data.map(t => prisma.transaction.create({ data: t, include: categoryInclude }))
     )
     return created.map(toTransaction)
   }
 
   async update(id: string, userId: string, data: Partial<Omit<Transaction, 'id' | 'userId' | 'createdAt'>>): Promise<Transaction> {
-    const updated = await prisma.transaction.update({ where: { id }, data })
+    const updated = await prisma.transaction.update({ where: { id }, data, include: categoryInclude })
     return toTransaction(updated)
   }
 

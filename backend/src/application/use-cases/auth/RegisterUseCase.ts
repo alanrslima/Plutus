@@ -31,7 +31,7 @@ export class RegisterUseCase {
     const user = await this.userRepository.create({ name, email, passwordHash })
 
     await this.categoryRepository.createMany(
-      DEFAULT_CATEGORIES.map((c) => ({ userId: user.id, name: c.name, type: c.type })),
+      DEFAULT_CATEGORIES.map((c) => ({ userId: user.id, name: c.name, type: c.type, icon: c.icon, color: c.color })),
     )
 
     return { id: user.id, name: user.name, email: user.email }

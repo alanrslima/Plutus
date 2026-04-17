@@ -40,23 +40,29 @@ export class ImportUseCase {
     private categorizationService?: CategorizationService,
   ) {}
 
-  /** Parse file and optionally enrich with AI category suggestions. */
+  /** Parse file without AI enrichment. */
   async parseAndCategorize(
     fileContent: string,
     fileType: FileType,
-    userId: string,
   ): Promise<ParseAndCategorizeResult> {
     const parsed = fileType === 'OFX'
       ? this.ofxParser.parse(fileContent)
       : this.csvParser.parse(fileContent)
 
+    return { transactions: parsed, aiEnabled: false }
+  }
+
+  /** Enrich already-parsed transactions with AI category suggestions. */
+  async categorizeTransactions(
+    transactions: ParsedTransaction[],
+    userId: string,
+  ): Promise<ParsedTransaction[]> {
     if (!this.categorizationService || !this.categorizationService.isEnabled) {
-      return { transactions: parsed, aiEnabled: false }
+      return transactions
     }
 
     const categories = await this.categoryRepo.findAllByUser(userId)
-    const enriched = await this.categorizationService.suggestCategories(parsed, categories)
-    return { transactions: enriched, aiEnabled: true }
+    return this.categorizationService.suggestCategories(transactions, categories)
   }
 
   /** Legacy synchronous parse (kept for backward compat). */

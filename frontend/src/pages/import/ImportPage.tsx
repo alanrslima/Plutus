@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
-import { Upload, FileText } from 'lucide-react'
+import { Upload, FileText, Sparkles } from 'lucide-react'
 import { useAccounts } from '@/hooks/useAccounts'
-import { useImportPreview, useConfirmImport, useImportHistory } from '@/hooks/useImport'
+import { useImportPreview, useConfirmImport, useImportHistory, useAICategorize } from '@/hooks/useImport'
 import { useCategories } from '@/hooks/useCategories'
 import { useToast } from '@/hooks/useToast'
 import { ImportPreviewResult, ParsedTransaction, ImportHistory } from '@/types'
@@ -30,6 +30,7 @@ export default function ImportPage() {
   const { data: categories = [] } = useCategories()
   const importPreview = useImportPreview()
   const confirmImport = useConfirmImport()
+  const aiCategorize = useAICategorize()
   const { toast } = useToast()
 
   const [accountId, setAccountId] = useState<string>('')
@@ -91,10 +92,10 @@ export default function ImportPage() {
     try {
       const data = await importPreview.mutateAsync(formData)
       setPreviewResult(data)
-      setAiEnabled(data.aiEnabled)
+      setAiEnabled(false)
       const initial: Record<string, string | null> = {}
       data.transactions.forEach(tx => {
-        initial[tx.externalId] = tx.suggestedCategoryId ?? null
+        initial[tx.externalId] = null
       })
       setCategorySelections(initial)
       setPreviewOpen(true)
@@ -134,6 +135,22 @@ export default function ImportPage() {
     setPreviewOpen(open)
     if (!open) {
       resetDialogState()
+    }
+  }
+
+  async function handleAICategorize() {
+    if (!previewResult) return
+    try {
+      const result = await aiCategorize.mutateAsync(previewResult.transactions)
+      setPreviewResult(prev => prev ? { ...prev, transactions: result.transactions } : prev)
+      setAiEnabled(true)
+      const updated: Record<string, string | null> = {}
+      result.transactions.forEach(tx => {
+        updated[tx.externalId] = tx.suggestedCategoryId ?? null
+      })
+      setCategorySelections(updated)
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro na categorização', description: 'Não foi possível categorizar as transações com IA.' })
     }
   }
 
@@ -347,6 +364,15 @@ export default function ImportPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>
               Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleAICategorize}
+              disabled={aiCategorize.isPending || !previewResult?.transactions.length}
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              {aiCategorize.isPending ? 'Categorizando...' : 'Categorizar com IA'}
             </Button>
             {aiEnabled && hasAnySuggestions && (
               <Button variant="outline" onClick={handleAcceptAllSuggestions}>

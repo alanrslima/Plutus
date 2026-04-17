@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, Filter } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { format } from 'date-fns'
+import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { useTransactions, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from '@/hooks/useTransactions'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useCategories } from '@/hooks/useCategories'
@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { CurrencyInput } from '@/components/ui/currency-input'
+import { MonthSelector } from '@/components/ui/month-selector'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const schema = z.object({
@@ -23,7 +25,7 @@ const schema = z.object({
   destinationAccountId: z.string().optional(),
   categoryId: z.string().optional(),
   type: z.enum(['income', 'expense', 'transfer']),
-  amount: z.coerce.number().positive('Valor deve ser positivo'),
+  amount: z.number().positive('Valor deve ser positivo'),
   description: z.string().optional(),
   date: z.string().min(1, 'Data obrigatória'),
   totalInstallments: z.preprocess(
@@ -36,13 +38,30 @@ type FormData = z.infer<typeof schema>
 const typeLabel: Record<TransactionType, string> = { income: 'Receita', expense: 'Despesa', transfer: 'Transferência' }
 const typeVariant: Record<TransactionType, 'income' | 'expense' | 'transfer'> = { income: 'income', expense: 'expense', transfer: 'transfer' }
 
+function getMonthBounds(year: number, month: number) {
+  const d = new Date(year, month - 1, 1)
+  return {
+    startDate: startOfMonth(d).toISOString(),
+    endDate: endOfMonth(d).toISOString(),
+  }
+}
+
 export default function TransactionsPage() {
-  const [filters, setFilters] = useState<{ type?: TransactionType; accountId?: string }>({})
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const [typeFilter, setTypeFilter] = useState<TransactionType | undefined>()
+  const [accountFilter, setAccountFilter] = useState<string | undefined>()
+  const [showFilters, setShowFilters] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
 
-  const { data: transactions = [], isLoading } = useTransactions(filters)
+  const { startDate, endDate } = getMonthBounds(selectedMonth.year, selectedMonth.month)
+  const { data: transactions = [], isLoading } = useTransactions({
+    type: typeFilter,
+    accountId: accountFilter,
+    startDate,
+    endDate,
+  })
   const { data: accounts = [] } = useAccounts()
   const { data: categories = [] } = useCategories()
   const createTransaction = useCreateTransaction()
@@ -52,19 +71,20 @@ export default function TransactionsPage() {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { type: 'expense', date: format(new Date(), 'yyyy-MM-dd') },
+    defaultValues: { type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), amount: 0 },
   })
   const selectedType = watch('type')
   const selectedAccountId = watch('accountId')
   const selectedCategoryId = watch('categoryId')
   const selectedDestinationAccountId = watch('destinationAccountId')
+  const amountValue = watch('amount')
 
   function openCreate() {
     setEditing(null)
     reset({
       type: 'expense',
       date: format(new Date(), 'yyyy-MM-dd'),
-      amount: undefined,
+      amount: 0,
       accountId: undefined,
       destinationAccountId: undefined,
       categoryId: undefined,
@@ -137,12 +157,17 @@ export default function TransactionsPage() {
         </div>
       </div>
 
+      {/* Month selector */}
+      <div className="flex items-center justify-between">
+        <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
+      </div>
+
       {showFilters && (
         <Card>
           <CardContent className="pt-4 flex gap-4 flex-wrap">
             <div className="flex-1 min-w-[150px] space-y-1">
               <Label>Tipo</Label>
-              <Select value={filters.type ?? '__none__'} onValueChange={v => setFilters(f => ({ ...f, type: (v === '__none__' ? undefined : v) as TransactionType }))}>
+              <Select value={typeFilter ?? '__none__'} onValueChange={v => setTypeFilter(v === '__none__' ? undefined : v as TransactionType)}>
                 <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Todos</SelectItem>
@@ -154,7 +179,7 @@ export default function TransactionsPage() {
             </div>
             <div className="flex-1 min-w-[150px] space-y-1">
               <Label>Conta</Label>
-              <Select value={filters.accountId ?? '__none__'} onValueChange={v => setFilters(f => ({ ...f, accountId: v === '__none__' ? undefined : v }))}>
+              <Select value={accountFilter ?? '__none__'} onValueChange={v => setAccountFilter(v === '__none__' ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Todas</SelectItem>
@@ -163,7 +188,7 @@ export default function TransactionsPage() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button variant="ghost" size="sm" onClick={() => setFilters({})}>Limpar</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setTypeFilter(undefined); setAccountFilter(undefined) }}>Limpar</Button>
             </div>
           </CardContent>
         </Card>
@@ -173,37 +198,77 @@ export default function TransactionsPage() {
         <CardHeader><CardTitle className="text-base">Extrato ({transactions.length} transações)</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-14 animate-pulse bg-muted rounded-md" />)}</div>
+            <div className="space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-10 animate-pulse bg-muted rounded-md" />)}</div>
           ) : transactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>Nenhuma transação encontrada.</p>
               <Button variant="link" onClick={openCreate}>Criar primeira transação</Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              {transactions.map(t => (
-                <div key={t.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3 hover:bg-accent/30 transition-colors">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Badge variant={typeVariant[t.type]} className="shrink-0">{typeLabel[t.type]}</Badge>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{t.description ?? '—'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(t.date)} · {accountName(t.accountId)}
-                        {t.totalInstallments && ` · ${t.installment}/${t.totalInstallments}x`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-4">
-                    <span className={`text-sm font-semibold ${t.type === 'income' ? 'text-income' : t.type === 'expense' ? 'text-expense' : 'text-transfer'}`}>
-                      {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
-                    </span>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">Tipo</th>
+                    <th className="pb-2 pr-4 font-medium">Descrição</th>
+                    <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Categoria</th>
+                    <th className="pb-2 pr-4 font-medium hidden md:table-cell">Conta</th>
+                    <th className="pb-2 pr-4 font-medium hidden lg:table-cell">Data</th>
+                    <th className="pb-2 pr-4 font-medium text-right">Valor</th>
+                    <th className="pb-2 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map(t => (
+                    <tr key={t.id} className="border-b last:border-0 hover:bg-accent/30 transition-colors">
+                      <td className="py-2.5 pr-4">
+                        <Badge variant={typeVariant[t.type]}>{typeLabel[t.type]}</Badge>
+                      </td>
+                      <td className="py-2.5 pr-4 font-medium max-w-[160px] truncate" title={t.description ?? '—'}>
+                        {t.description ?? '—'}
+                        {t.totalInstallments && (
+                          <span className="ml-1.5 text-xs text-muted-foreground font-normal">
+                            {t.installment}/{t.totalInstallments}x
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4 hidden sm:table-cell">
+                        {t.categoryName ? (
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full border font-medium"
+                            style={{
+                              borderColor: t.categoryColor ?? undefined,
+                              color: t.categoryColor ?? undefined,
+                              backgroundColor: t.categoryColor ? `${t.categoryColor}18` : undefined,
+                            }}
+                          >
+                            {t.categoryName}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4 text-muted-foreground hidden md:table-cell whitespace-nowrap">
+                        {accountName(t.accountId)}
+                      </td>
+                      <td className="py-2.5 pr-4 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
+                        {formatDate(t.date)}
+                      </td>
+                      <td className="py-2.5 pr-4 text-right whitespace-nowrap">
+                        <span className={`font-semibold ${t.type === 'income' ? 'text-income' : t.type === 'expense' ? 'text-expense' : 'text-transfer'}`}>
+                          {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+                        </span>
+                      </td>
+                      <td className="py-2.5">
+                        <div className="flex gap-1 justify-end">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
@@ -257,7 +322,19 @@ export default function TransactionsPage() {
                   <Select value={selectedCategoryId ?? ''} onValueChange={v => setValue('categoryId', v)}>
                     <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
                     <SelectContent>
-                      {filteredCategories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      {filteredCategories.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          <span className="flex items-center gap-2">
+                            {c.color && (
+                              <span
+                                className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: c.color }}
+                              />
+                            )}
+                            {c.name}
+                          </span>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -266,7 +343,10 @@ export default function TransactionsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Valor</Label>
-                  <Input type="number" step="0.01" placeholder="0.00" {...register('amount')} />
+                  <CurrencyInput
+                    value={amountValue ?? 0}
+                    onChange={v => setValue('amount', v)}
+                  />
                   {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
                 </div>
                 <div className="space-y-2">

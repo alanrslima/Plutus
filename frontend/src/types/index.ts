@@ -19,6 +19,8 @@ export interface Category {
   userId: string
   name: string
   type: TransactionType
+  icon?: string
+  color?: string
   createdAt: string
 }
 
@@ -28,6 +30,9 @@ export interface Transaction {
   accountId: string
   destinationAccountId?: string
   categoryId?: string
+  categoryName?: string
+  categoryIcon?: string
+  categoryColor?: string
   type: TransactionType
   amount: number
   description?: string

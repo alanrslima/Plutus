@@ -1,5 +1,26 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import {
+  Plus, Pencil, Trash2,
+  // food & drink
+  Utensils, ChefHat, Coffee, Pizza, Beer, Apple,
+  // shopping
+  ShoppingCart, ShoppingBag, Tag,
+  // transport
+  Car, Bus, Plane, Fuel, Bike, Train,
+  // home & utilities
+  Home, Building2, Zap, Droplets, Flame, Wifi,
+  // health
+  Heart, Pill, Stethoscope, Activity,
+  // finance & work
+  Briefcase, DollarSign, PiggyBank, TrendingUp, Landmark, CreditCard, Wallet, ReceiptText, Receipt,
+  // education & entertainment
+  GraduationCap, BookOpen, Music, Film, Gamepad2, Tv, Camera,
+  // lifestyle
+  Dumbbell, Scissors, Shirt, PawPrint, Baby,
+  // misc
+  Gift, RotateCcw, Laptop, MoreHorizontal, ArrowLeftRight, Star, Wrench, Package,
+  type LucideIcon,
+} from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,19 +30,138 @@ import { Category, TransactionType } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
+
+// Icon registry — grouped by category for the picker
+const ICON_GROUPS: { label: string; icons: { name: string; component: LucideIcon }[] }[] = [
+  {
+    label: 'Alimentação',
+    icons: [
+      { name: 'Utensils', component: Utensils },
+      { name: 'ChefHat', component: ChefHat },
+      { name: 'Coffee', component: Coffee },
+      { name: 'Pizza', component: Pizza },
+      { name: 'Beer', component: Beer },
+      { name: 'Apple', component: Apple },
+    ],
+  },
+  {
+    label: 'Compras',
+    icons: [
+      { name: 'ShoppingCart', component: ShoppingCart },
+      { name: 'ShoppingBag', component: ShoppingBag },
+      { name: 'Tag', component: Tag },
+      { name: 'Shirt', component: Shirt },
+      { name: 'Package', component: Package },
+    ],
+  },
+  {
+    label: 'Transporte',
+    icons: [
+      { name: 'Car', component: Car },
+      { name: 'Bus', component: Bus },
+      { name: 'Plane', component: Plane },
+      { name: 'Fuel', component: Fuel },
+      { name: 'Bike', component: Bike },
+      { name: 'Train', component: Train },
+    ],
+  },
+  {
+    label: 'Moradia',
+    icons: [
+      { name: 'Home', component: Home },
+      { name: 'Building2', component: Building2 },
+      { name: 'Zap', component: Zap },
+      { name: 'Droplets', component: Droplets },
+      { name: 'Flame', component: Flame },
+      { name: 'Wifi', component: Wifi },
+    ],
+  },
+  {
+    label: 'Saúde',
+    icons: [
+      { name: 'Heart', component: Heart },
+      { name: 'Pill', component: Pill },
+      { name: 'Stethoscope', component: Stethoscope },
+      { name: 'Activity', component: Activity },
+      { name: 'Dumbbell', component: Dumbbell },
+    ],
+  },
+  {
+    label: 'Finanças',
+    icons: [
+      { name: 'Briefcase', component: Briefcase },
+      { name: 'DollarSign', component: DollarSign },
+      { name: 'PiggyBank', component: PiggyBank },
+      { name: 'TrendingUp', component: TrendingUp },
+      { name: 'Landmark', component: Landmark },
+      { name: 'CreditCard', component: CreditCard },
+      { name: 'Wallet', component: Wallet },
+      { name: 'Receipt', component: Receipt },
+      { name: 'ReceiptText', component: ReceiptText },
+    ],
+  },
+  {
+    label: 'Educação & Lazer',
+    icons: [
+      { name: 'GraduationCap', component: GraduationCap },
+      { name: 'BookOpen', component: BookOpen },
+      { name: 'Music', component: Music },
+      { name: 'Film', component: Film },
+      { name: 'Gamepad2', component: Gamepad2 },
+      { name: 'Tv', component: Tv },
+      { name: 'Camera', component: Camera },
+    ],
+  },
+  {
+    label: 'Outros',
+    icons: [
+      { name: 'Gift', component: Gift },
+      { name: 'RotateCcw', component: RotateCcw },
+      { name: 'Laptop', component: Laptop },
+      { name: 'Scissors', component: Scissors },
+      { name: 'PawPrint', component: PawPrint },
+      { name: 'Baby', component: Baby },
+      { name: 'Star', component: Star },
+      { name: 'Wrench', component: Wrench },
+      { name: 'ArrowLeftRight', component: ArrowLeftRight },
+      { name: 'MoreHorizontal', component: MoreHorizontal },
+    ],
+  },
+]
+
+// Flat list for the CategoryIcon helper
+const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
+  ICON_GROUPS.flatMap(g => g.icons.map(i => [i.name, i.component]))
+)
+
+const PRESET_COLORS = [
+  '#6366f1', '#8b5cf6', '#a855f7', '#ec4899',
+  '#ef4444', '#f97316', '#f59e0b', '#eab308',
+  '#84cc16', '#22c55e', '#10b981', '#14b8a6',
+  '#06b6d4', '#0ea5e9', '#3b82f6', '#64748b',
+]
+
+function CategoryIcon({ name, color, size = 16 }: { name?: string; color?: string; size?: number }) {
+  const Icon = name ? ICON_MAP[name] : undefined
+  if (!Icon) return null
+  return <Icon size={size} style={{ color: color ?? undefined }} />
+}
 
 const schema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
   type: z.enum(['income', 'expense', 'transfer']),
+  icon: z.string().optional(),
+  color: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
 
-const typeLabel: Record<TransactionType, string> = { income: 'Receita', expense: 'Despesa', transfer: 'Transferência' }
-const typeVariant: Record<TransactionType, 'income' | 'expense' | 'transfer'> = { income: 'income', expense: 'expense', transfer: 'transfer' }
+const typeLabel: Record<TransactionType, string> = {
+  income: 'Receita', expense: 'Despesa', transfer: 'Transferência',
+}
 
 export default function CategoriesPage() {
   const { data: categories = [], isLoading } = useCategories()
@@ -34,19 +174,21 @@ export default function CategoriesPage() {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { type: 'expense' },
+    defaultValues: { type: 'expense', icon: undefined, color: undefined },
   })
   const selectedType = watch('type')
+  const selectedIcon = watch('icon')
+  const selectedColor = watch('color')
 
   function openCreate() {
     setEditing(null)
-    reset({ name: '', type: 'expense' })
+    reset({ name: '', type: 'expense', icon: undefined, color: undefined })
     setDialogOpen(true)
   }
 
   function openEdit(category: Category) {
     setEditing(category)
-    reset({ name: category.name, type: category.type })
+    reset({ name: category.name, type: category.type, icon: category.icon, color: category.color })
     setDialogOpen(true)
   }
 
@@ -89,31 +231,49 @@ export default function CategoriesPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">{[1, 2, 3].map(i => <Card key={i} className="h-12 animate-pulse" />)}</div>
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <Card key={i} className="h-12 animate-pulse" />)}
+        </div>
       ) : categories.length === 0 ? (
-        <Card><CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-          <p>Nenhuma categoria ainda.</p>
-          <Button variant="link" onClick={openCreate}>Criar primeira categoria</Button>
-        </CardContent></Card>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <p>Nenhuma categoria ainda.</p>
+            <Button variant="link" onClick={openCreate}>Criar primeira categoria</Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-6">
-          {(['income', 'expense', 'transfer'] as TransactionType[]).map(type => (
+          {(['income', 'expense', 'transfer'] as TransactionType[]).map(type =>
             grouped[type].length > 0 && (
               <div key={type}>
-                <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider">{typeLabel[type]}</h2>
+                <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
+                  {typeLabel[type]}
+                </h2>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {grouped[type].map(cat => (
                     <Card key={cat.id}>
                       <CardContent className="flex items-center justify-between p-4">
                         <div className="flex items-center gap-3">
-                          <Badge variant={typeVariant[cat.type]}>{typeLabel[cat.type]}</Badge>
+                          {(cat.icon || cat.color) && (
+                            <div
+                              className="flex h-8 w-8 items-center justify-center rounded-full shrink-0"
+                              style={{ backgroundColor: cat.color ? `${cat.color}20` : '#6366f120' }}
+                            >
+                              <CategoryIcon name={cat.icon} color={cat.color ?? '#6366f1'} size={16} />
+                            </div>
+                          )}
                           <span className="text-sm font-medium">{cat.name}</span>
                         </div>
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(cat)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(cat.id)}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(cat.id)}
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -123,12 +283,12 @@ export default function CategoriesPage() {
                 </div>
               </div>
             )
-          ))}
+          )}
         </div>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar Categoria' : 'Nova Categoria'}</DialogTitle>
           </DialogHeader>
@@ -139,6 +299,7 @@ export default function CategoriesPage() {
                 <Input placeholder="Ex: Alimentação, Salário..." {...register('name')} />
                 {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               </div>
+
               <div className="space-y-2">
                 <Label>Tipo</Label>
                 <Select value={selectedType} onValueChange={v => setValue('type', v as TransactionType)}>
@@ -149,6 +310,51 @@ export default function CategoriesPage() {
                     <SelectItem value="transfer">Transferência</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Cor</Label>
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setValue('color', selectedColor === c ? undefined : c)}
+                      className={cn(
+                        'h-7 w-7 rounded-full border-2 transition-transform hover:scale-110',
+                        selectedColor === c ? 'border-foreground scale-110' : 'border-transparent',
+                      )}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Ícone</Label>
+                <div className="max-h-52 overflow-y-auto space-y-3 pr-1">
+                  {ICON_GROUPS.map(group => (
+                    <div key={group.label}>
+                      <p className="text-xs text-muted-foreground mb-1.5">{group.label}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.icons.map(({ name, component: Icon }) => (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => setValue('icon', selectedIcon === name ? undefined : name)}
+                            className={cn(
+                              'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors hover:bg-accent',
+                              selectedIcon === name ? 'border-foreground bg-accent' : 'border-border',
+                            )}
+                            title={name}
+                          >
+                            <Icon size={15} style={{ color: selectedColor ?? undefined }} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             <DialogFooter>
