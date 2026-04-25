@@ -214,6 +214,14 @@ export default function TransactionsPage() {
   const accountName = (id: string) =>
     accounts.find((a) => a.id === id)?.name ?? id;
 
+  const totalIncome = transactions
+    .filter((t) => t.type === "income" && !t.destinationAccountId)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = transactions
+    .filter((t) => t.type === "expense" && !t.destinationAccountId)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const net = totalIncome - totalExpense;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -466,6 +474,43 @@ export default function TransactionsPage() {
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border">
+                    <td colSpan={2} className="pt-3 pr-4">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          Receitas:{" "}
+                          <span className="text-income font-semibold">
+                            {formatCurrency(totalIncome)}
+                          </span>
+                        </span>
+                        <span>
+                          Despesas:{" "}
+                          <span className="text-expense font-semibold">
+                            {formatCurrency(totalExpense)}
+                          </span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="hidden sm:table-cell" />
+                    <td className="hidden md:table-cell" />
+                    <td className="hidden lg:table-cell" />
+                    <td className="pt-3 pr-4 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          Saldo
+                        </span>
+                        <span
+                          className={`font-semibold text-sm ${net >= 0 ? "text-income" : "text-expense"}`}
+                        >
+                          {net >= 0 ? "+" : ""}
+                          {formatCurrency(net)}
+                        </span>
+                      </div>
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
