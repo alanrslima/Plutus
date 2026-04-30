@@ -13,7 +13,6 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "paths": {
       "@domain/*": ["src/domain/*"],
       "@application/*": ["src/application/*"],
