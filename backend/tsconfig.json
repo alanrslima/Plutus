@@ -14,10 +14,10 @@
     "declarationMap": true,
     "sourceMap": true,
     "paths": {
-      "@domain/*": ["src/domain/*"],
-      "@application/*": ["src/application/*"],
-      "@infra/*": ["src/infra/*"],
-      "@interfaces/*": ["src/interfaces/*"]
+      "@domain/*": ["./src/domain/*"],
+      "@application/*": ["./src/application/*"],
+      "@infra/*": ["./src/infra/*"],
+      "@interfaces/*": ["./src/interfaces/*"]
     }
   },
   "include": ["src/**/*"],
