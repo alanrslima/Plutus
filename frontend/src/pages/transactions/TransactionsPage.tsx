@@ -89,6 +89,7 @@ export default function TransactionsPage() {
   });
   const [typeFilter, setTypeFilter] = useState<TransactionType | undefined>();
   const [accountFilter, setAccountFilter] = useState<string | undefined>();
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [showFilters, setShowFilters] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -103,6 +104,7 @@ export default function TransactionsPage() {
   const { data: transactions = [], isLoading } = useTransactions({
     type: typeFilter,
     accountId: accountFilter,
+    categoryId: categoryFilter,
     startDate,
     endDate,
   });
@@ -291,6 +293,37 @@ export default function TransactionsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex-1 min-w-[150px] space-y-1">
+              <Label>Categoria</Label>
+              <Select
+                value={categoryFilter ?? "__none__"}
+                onValueChange={(v) =>
+                  setCategoryFilter(v === "__none__" ? undefined : v)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Todas</SelectItem>
+                  {categories
+                    .filter((c) => !typeFilter || c.type === typeFilter)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="flex items-center gap-2">
+                          {c.color && (
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: c.color }}
+                            />
+                          )}
+                          {c.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-end">
               <Button
                 variant="ghost"
@@ -298,6 +331,7 @@ export default function TransactionsPage() {
                 onClick={() => {
                   setTypeFilter(undefined);
                   setAccountFilter(undefined);
+                  setCategoryFilter(undefined);
                 }}
               >
                 Limpar
