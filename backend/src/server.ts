@@ -12,12 +12,14 @@ import importRoutes from './interfaces/routes/import.routes'
 import copilotRoutes from './interfaces/routes/copilot.routes'
 import goalsRoutes from './interfaces/routes/goals.routes'
 import { errorHandler } from './interfaces/middlewares/errorHandler'
+import { requestLogger } from './interfaces/middlewares/requestLogger'
 
 const app = express()
 
 app.use(helmet())
 app.use(cors())
 app.use(express.json())
+app.use(requestLogger)
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 
