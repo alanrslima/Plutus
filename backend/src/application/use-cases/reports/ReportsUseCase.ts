@@ -11,6 +11,10 @@ export class ReportsUseCase {
     return this.transactionRepository.getCategorySummary(userId, startDate, endDate)
   }
 
+  async getCategoryTrend(userId: string, year: number, type: 'income' | 'expense') {
+    return this.transactionRepository.getCategoryTrend(userId, year, type)
+  }
+
   async getAccountSummary(userId: string) {
     return this.transactionRepository.getAccountSummary(userId)
   }

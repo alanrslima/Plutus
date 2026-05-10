@@ -66,6 +66,13 @@ export interface AccountSummary {
   balance: number
 }
 
+export interface CategoryTrendItem {
+  categoryId: string
+  categoryName: string
+  month: string
+  total: number
+}
+
 // Import
 export type FileType = 'OFX' | 'CSV'
 export type ImportStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED'

@@ -28,6 +28,15 @@ export class ReportsController {
     } catch (err) { next(err) }
   }
 
+  async categoryTrend(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear()
+      const type = (req.query.type as string) === 'income' ? 'income' : 'expense'
+      const result = await useCase.getCategoryTrend(req.userId!, year, type as 'income' | 'expense')
+      res.json(result)
+    } catch (err) { next(err) }
+  }
+
   async accountSummary(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const result = await useCase.getAccountSummary(req.userId!)

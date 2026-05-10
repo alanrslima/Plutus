@@ -174,6 +174,30 @@ export class PrismaTransactionRepository implements ITransactionRepository {
     }))
   }
 
+  async getCategoryTrend(userId: string, year: number, type: 'income' | 'expense'): Promise<{ categoryId: string; categoryName: string; month: string; total: number }[]> {
+    const result = await prisma.$queryRaw<{ categoryId: string; categoryName: string; month: string; total: number }[]>`
+      SELECT
+        c.id as "categoryId",
+        c.name as "categoryName",
+        TO_CHAR(t.date, 'YYYY-MM') as month,
+        COALESCE(SUM(t.amount), 0) as total
+      FROM transactions t
+      JOIN categories c ON t.category_id = c.id
+      WHERE t.user_id = ${userId}
+        AND t.type::text = ${type}
+        AND t.destination_account_id IS NULL
+        AND EXTRACT(YEAR FROM t.date) = ${year}
+      GROUP BY c.id, c.name, TO_CHAR(t.date, 'YYYY-MM')
+      ORDER BY month ASC, total DESC
+    `
+    return result.map(r => ({
+      categoryId: r.categoryId,
+      categoryName: r.categoryName,
+      month: r.month,
+      total: Number(r.total),
+    }))
+  }
+
   async getAccountSummary(userId: string): Promise<{ accountId: string; accountName: string; balance: number }[]> {
     const accounts = await prisma.account.findMany({
       where: { userId },
