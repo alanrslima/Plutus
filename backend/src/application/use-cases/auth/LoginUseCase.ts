@@ -1,4 +1,5 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository'
+import { AppError } from '../../errors/AppError'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
@@ -17,10 +18,10 @@ export class LoginUseCase {
 
   async execute({ email, password }: LoginInput): Promise<LoginOutput> {
     const user = await this.userRepository.findByEmail(email)
-    if (!user) throw new Error('Invalid credentials')
+    if (!user) throw new AppError('Invalid credentials', 401)
 
     const isValid = await bcrypt.compare(password, user.passwordHash)
-    if (!isValid) throw new Error('Invalid credentials')
+    if (!isValid) throw new AppError('Invalid credentials', 401)
 
     const secret = process.env.JWT_SECRET!
     const expiresIn = process.env.JWT_EXPIRES_IN ?? '7d'

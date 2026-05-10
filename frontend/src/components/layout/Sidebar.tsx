@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Wallet, Tag, ArrowLeftRight, BarChart3, Upload, LogOut, BrainCircuit } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, Wallet, Tag, ArrowLeftRight, BarChart3, Upload, LogOut, BrainCircuit, UserCog } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ const navItems = [
 
 export function Sidebar() {
   const { logout, user } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-border bg-card">
@@ -44,14 +45,23 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-border p-4">
-        <div className="mb-3">
+        <button
+          onClick={() => navigate('/profile')}
+          className="mb-3 w-full text-left hover:opacity-80 transition-opacity"
+        >
           <p className="text-sm font-medium truncate">{user?.name}</p>
           <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+        </button>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" className="flex-1 justify-start gap-2" onClick={() => navigate('/profile')}>
+            <UserCog className="h-4 w-4" />
+            Perfil
+          </Button>
+          <Button variant="ghost" size="sm" className="flex-1 justify-start gap-2" onClick={logout}>
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
         </div>
-        <Button variant="ghost" size="sm" className="w-full justify-start gap-2" onClick={logout}>
-          <LogOut className="h-4 w-4" />
-          Sair
-        </Button>
       </div>
     </aside>
   )

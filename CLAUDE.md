@@ -96,3 +96,119 @@ PORT=3333
 ```
 
 Frontend proxies `/api/*` → `http://localhost:3333/*` via `vite.config.ts`, so all API calls use `/api/...` paths.
+
+---
+
+## Coding Standards
+
+### Error Handling
+
+**Always throw `AppError`, never `throw new Error()`** in use cases and repositories.
+
+```typescript
+// WRONG — falls through to 500 in errorHandler
+throw new Error('Account not found')
+
+// CORRECT — errorHandler reads err.status directly
+import { AppError } from '../../errors/AppError'
+throw new AppError('Account not found', 404)
+```
+
+HTTP status guide:
+- `400` — bad input / business rule violation
+- `401` — JWT missing or invalid (session expired) — **never use for domain errors on authenticated routes**
+- `403` — authenticated but not authorized
+- `404` — resource not found
+- `409` — conflict (e.g. duplicate email)
+- `422` — semantically valid request that fails a domain rule on an authenticated route (e.g. wrong current password)
+
+> **Critical — Axios interceptor rule:** The frontend interceptor (`services/api.ts`) redirects to `/login` on `401` **only for non-auth routes** (i.e. URLs that do not start with `/auth/`). Auth routes (`/auth/login`, `/auth/register`, `/auth/password`) are excluded from the redirect so that form errors surface normally.
+> - Use `401` for unauthenticated requests on auth endpoints (correct HTTP semantics, interceptor ignores it).
+> - Use `422` when the user IS authenticated via JWT but a domain rule fails (e.g. wrong current password) — keeps semantics clear and also avoids the redirect.
+
+The `errorHandler` middleware has two branches only: `AppError` (uses `err.status`) and everything else (logs + returns 500). Never add a known-messages list back.
+
+---
+
+### Adding a New Backend Feature (checklist)
+
+Follow this order — each layer depends only on the layer below it.
+
+**1. Domain**
+- Add entity type in `src/domain/entities/MyEntity.ts`
+- Add repository interface in `src/domain/repositories/IMyEntityRepository.ts` with only the methods this feature needs
+
+**2. Application**
+- Create use case in `src/application/use-cases/my-entity/MyEntityUseCase.ts`
+- Constructor receives only repository interfaces — never import Prisma or Express here
+- Throw `AppError` with the correct HTTP status for every business error
+- One use case class per resource is fine; split into separate files only when a single method grows beyond ~50 lines
+
+**3. Infrastructure**
+- Implement the repository interface in `src/infra/database/repositories/PrismaMyEntityRepository.ts`
+- Map Prisma model → domain entity in every method (never return the raw Prisma object)
+- `Decimal` fields: always call `.toNumber()` in the mapper
+
+**4. Interface**
+- Controller in `src/interfaces/controllers/MyEntityController.ts`:
+  - Declare Zod schema at the top of the file (not inside the method)
+  - Parse with `.parse()` — Zod errors bubble to `errorHandler` automatically
+  - Call the use case, return the result, delegate errors via `next(err)` — nothing else
+- Routes in `src/interfaces/routes/my-entity.routes.ts`:
+  - Apply `authMiddleware` to every route that requires authentication
+  - Mount in `server.ts`
+
+**Template — controller method:**
+```typescript
+async create(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = createSchema.parse(req.body)
+    const result = await myEntityUseCase.create(req.userId!, data)
+    res.status(201).json(result)
+  } catch (err) {
+    next(err)
+  }
+}
+```
+
+---
+
+### Adding a New Frontend Feature (checklist)
+
+**1. Types**
+- Add the TypeScript interface to `src/types/index.ts` mirroring the backend entity
+
+**2. Hook**
+- Create `src/hooks/useMyEntity.ts` (or add to an existing hook file for the same resource)
+- Use `useQuery` for reads and `useMutation` for writes — always from `@tanstack/react-query`
+- Mutations must call `queryClient.invalidateQueries` for every key that can become stale (include `['reports']` and `['accounts']` when the feature affects balances)
+- API calls go through the shared `api` axios instance from `src/services/api.ts` — never create a new axios instance
+
+**3. Page**
+- Create `src/pages/my-entity/MyEntityPage.tsx`
+- Forms use `react-hook-form` + `zodResolver` — define the Zod schema at the top of the file
+- Display field errors with `{errors.field && <p className="text-xs text-destructive">{errors.field.message}</p>}`
+- Use `useToast` for success and error feedback — catch API errors and read `err?.response?.data?.message` before falling back to a generic string
+
+**4. Routing**
+- Register the route in `src/App.tsx` inside the `PrivateRoute` / `AppLayout` wrapper
+- Add the nav item to `src/components/layout/Sidebar.tsx` if it needs a sidebar entry
+
+---
+
+### Security Rules
+
+- Every route that returns or mutates user data **must** have `authMiddleware`; use `req.userId` (set by the middleware) to scope all queries — never trust a userId from the request body
+- Input validation happens in the controller via Zod before anything reaches the use case
+- Passwords are always hashed with `bcrypt` (salt rounds = 10) — never store or log plain-text passwords
+- JWT is verified in `authMiddleware` only — use cases never touch JWT
+- Never expose `passwordHash` in any API response
+
+---
+
+### TypeScript Rules
+
+- `any` is forbidden — use `unknown` and narrow, or define a proper type
+- Use `AuthRequest` (from `src/interfaces/middlewares/authMiddleware.ts`) for controller methods that need `req.userId`
+- Repository interfaces live in `domain/` and must not import from `infra/` — dependency direction is always inward
+- Run `npx tsc --noEmit` in both `backend/` and `frontend/` before considering a task done; fix all errors before finishing

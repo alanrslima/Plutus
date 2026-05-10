@@ -8,6 +8,7 @@ interface AuthContextData {
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>
   isAuthenticated: boolean
 }
 
@@ -39,8 +40,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('plutos:user')
   }, [])
 
+  const updatePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    await api.put('/auth/password', { currentPassword, newPassword })
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, updatePassword, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,6 +1,7 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository'
 import { ICategoryRepository } from '../../../domain/repositories/ICategoryRepository'
 import { DEFAULT_CATEGORIES } from '../../data/defaultCategories'
+import { AppError } from '../../errors/AppError'
 import bcrypt from 'bcryptjs'
 
 interface RegisterInput {
@@ -23,9 +24,7 @@ export class RegisterUseCase {
 
   async execute({ name, email, password }: RegisterInput): Promise<RegisterOutput> {
     const existing = await this.userRepository.findByEmail(email)
-    if (existing) {
-      throw new Error('Email already in use')
-    }
+    if (existing) throw new AppError('Email already in use', 409)
 
     const passwordHash = await bcrypt.hash(password, 10)
     const user = await this.userRepository.create({ name, email, passwordHash })

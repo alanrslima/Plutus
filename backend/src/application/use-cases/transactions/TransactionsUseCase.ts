@@ -2,6 +2,7 @@ import { ITransactionRepository, TransactionFilters } from '../../../domain/repo
 import { IAccountRepository } from '../../../domain/repositories/IAccountRepository'
 import { Transaction } from '../../../domain/entities/Transaction'
 import { TransactionType } from '../../../domain/entities/Category'
+import { AppError } from '../../errors/AppError'
 
 interface CreateTransactionInput {
   userId: string
@@ -31,12 +32,12 @@ export class TransactionsUseCase {
 
     // Validate accounts belong to user
     const account = await this.accountRepository.findById(accountId, userId)
-    if (!account) throw new Error('Account not found')
+    if (!account) throw new AppError('Account not found', 404)
 
     if (type === 'transfer') {
-      if (!destinationAccountId) throw new Error('Destination account required for transfers')
+      if (!destinationAccountId) throw new AppError('Destination account required for transfers', 400)
       const destAccount = await this.accountRepository.findById(destinationAccountId, userId)
-      if (!destAccount) throw new Error('Destination account not found')
+      if (!destAccount) throw new AppError('Destination account not found', 404)
     }
 
     const installments = totalInstallments && totalInstallments > 1 ? totalInstallments : 1
@@ -112,7 +113,7 @@ export class TransactionsUseCase {
 
   async update(id: string, userId: string, data: Partial<Omit<Transaction, 'id' | 'userId' | 'createdAt'>>): Promise<Transaction> {
     const existing = await this.transactionRepository.findById(id, userId)
-    if (!existing) throw new Error('Transaction not found')
+    if (!existing) throw new AppError('Transaction not found', 404)
 
     // Reverse old balance effect
     const oldDelta = existing.type === 'income' ? -existing.amount : existing.amount
@@ -132,7 +133,7 @@ export class TransactionsUseCase {
 
   async delete(id: string, userId: string): Promise<void> {
     const existing = await this.transactionRepository.findById(id, userId)
-    if (!existing) throw new Error('Transaction not found')
+    if (!existing) throw new AppError('Transaction not found', 404)
 
     const delta = existing.type === 'income' ? -existing.amount : existing.amount
     await this.accountRepository.updateBalance(existing.accountId, delta)

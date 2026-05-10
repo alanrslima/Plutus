@@ -37,4 +37,8 @@ export class PrismaUserRepository implements IUserRepository {
       createdAt: user.createdAt,
     }
   }
+
+  async updatePassword(id: string, newPasswordHash: string): Promise<void> {
+    await prisma.user.update({ where: { id }, data: { passwordHash: newPasswordHash } })
+  }
 }

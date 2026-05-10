@@ -1,5 +1,6 @@
 import { ICategoryRepository } from '../../../domain/repositories/ICategoryRepository'
 import { Category, TransactionType } from '../../../domain/entities/Category'
+import { AppError } from '../../errors/AppError'
 
 export class CategoriesUseCase {
   constructor(private categoryRepository: ICategoryRepository) {}
@@ -14,13 +15,13 @@ export class CategoriesUseCase {
 
   async update(id: string, userId: string, data: { name?: string; type?: TransactionType; icon?: string; color?: string }): Promise<Category> {
     const existing = await this.categoryRepository.findById(id, userId)
-    if (!existing) throw new Error('Category not found')
+    if (!existing) throw new AppError('Category not found', 404)
     return this.categoryRepository.update(id, userId, data)
   }
 
   async delete(id: string, userId: string): Promise<void> {
     const existing = await this.categoryRepository.findById(id, userId)
-    if (!existing) throw new Error('Category not found')
+    if (!existing) throw new AppError('Category not found', 404)
     return this.categoryRepository.delete(id, userId)
   }
 }
