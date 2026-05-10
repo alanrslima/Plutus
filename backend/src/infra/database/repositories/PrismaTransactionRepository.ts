@@ -69,7 +69,9 @@ export class PrismaTransactionRepository implements ITransactionRepository {
           : filters?.type
             ? { type: filters.type, destinationAccountId: null }
             : {}),
-        ...(filters?.accountId ? { accountId: filters.accountId } : {}),
+        ...(filters?.accountId
+          ? { OR: [{ accountId: filters.accountId }, { destinationAccountId: filters.accountId }] }
+          : {}),
         ...(filters?.categoryId ? { categoryId: filters.categoryId } : {}),
         ...(filters?.startDate || filters?.endDate ? {
           date: {
